@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titulo }} — IPTV Manager{% endblock %}
+{% block page_title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="max-w-lg">
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+    <form method="post" class="space-y-5">
+      {% csrf_token %}
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">
+          Nome do Plano <span class="text-red-500">*</span>
+        </label>
+        {{ form.nome }}
+        {% if form.nome.errors %}<p class="text-xs text-red-600 mt-1">{{ form.nome.errors|join:", " }}</p>{% endif %}
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">
+            Preço por Tela (R$) <span class="text-red-500">*</span>
+          </label>
+          {{ form.preco_por_tela }}
+          <p class="text-xs text-slate-400 mt-1">{{ form.preco_por_tela.help_text }}</p>
+          {% if form.preco_por_tela.errors %}<p class="text-xs text-red-600 mt-1">{{ form.preco_por_tela.errors|join:", " }}</p>{% endif %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">
+            Custo por Tela (R$) <span class="text-red-500">*</span>
+          </label>
+          {{ form.custo_por_tela }}
+          <p class="text-xs text-slate-400 mt-1">{{ form.custo_por_tela.help_text }}</p>
+          {% if form.custo_por_tela.errors %}<p class="text-xs text-red-600 mt-1">{{ form.custo_por_tela.errors|join:", " }}</p>{% endif %}
+        </div>
+      </div>
+
+      <!-- Preview de margem em tempo real -->
+      <div x-data="{
+            preco: parseFloat('{{ form.preco_por_tela.value|default:0 }}') || 0,
+            custo: parseFloat('{{ form.custo_por_tela.value|default:0 }}') || 0,
+            get margem() { return (this.preco - this.custo).toFixed(2) },
+            get pct() {
+              if (!this.preco) return 0;
+              return ((this.preco - this.custo) / this.preco * 100).toFixed(1);
+            }
+          }"
+           @input.window="
+             const p = document.querySelector('[name=preco_por_tela]');
+             const c = document.querySelector('[name=custo_por_tela]');
+             if (p) preco = parseFloat(p.value) || 0;
+             if (c) custo = parseFloat(c.value) || 0;
+           ">
+        <div class="flex items-center gap-4 px-4 py-3 bg-slate-50 rounded-lg border border-slate-200 text-sm">
+          <div>
+            <span class="text-slate-500 text-xs">Margem/tela:</span>
+            <span class="font-semibold ml-1" :class="margem >= 0 ? 'text-green-600' : 'text-red-600'">
+              R$ <span x-text="margem"></span>
+            </span>
+          </div>
+          <div>
+            <span class="text-slate-500 text-xs">Margem %:</span>
+            <span class="font-semibold ml-1" :class="pct >= 0 ? 'text-green-600' : 'text-red-600'">
+              <span x-text="pct"></span>%
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
+        {{ form.descricao }}
+      </div>
+
+      <div class="flex items-center gap-2">
+        {{ form.ativo }}
+        <label class="text-sm font-medium text-slate-700">Plano ativo</label>
+      </div>
+
+      <div class="flex items-center gap-3 pt-2">
+        <button type="submit"
+                class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm transition">
+          {{ btn_label }}
+        </button>
+        <a href="{% url 'listas:planos' %}"
+           class="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-sm transition">
+          Cancelar
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

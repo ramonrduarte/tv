@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titulo }} — IPTV Manager{% endblock %}
+{% block page_title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="max-w-lg">
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+    <form method="post" class="space-y-5">
+      {% csrf_token %}
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">
+          Lista de Canais <span class="text-red-500">*</span>
+        </label>
+        {{ form.lista }}
+        {% if form.lista.errors %}<p class="text-xs text-red-600 mt-1">{{ form.lista.errors|join:", " }}</p>{% endif %}
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">
+            Valor (R$) <span class="text-red-500">*</span>
+          </label>
+          {{ form.valor }}
+          {% if form.valor.errors %}<p class="text-xs text-red-600 mt-1">{{ form.valor.errors|join:", " }}</p>{% endif %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Referência</label>
+          {{ form.referencia }}
+          <p class="text-xs text-slate-400 mt-1">Formato: YYYY-MM (ex: 2024-03)</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">
+            Vencimento <span class="text-red-500">*</span>
+          </label>
+          {{ form.vencimento }}
+          {% if form.vencimento.errors %}<p class="text-xs text-red-600 mt-1">{{ form.vencimento.errors|join:", " }}</p>{% endif %}
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Data do Pagamento</label>
+          {{ form.data_pagamento }}
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
+        {{ form.status }}
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Observações</label>
+        {{ form.notas }}
+      </div>
+
+      <div class="flex items-center gap-3 pt-2">
+        <button type="submit"
+                class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm transition">
+          {{ btn_label }}
+        </button>
+        <a href="{% url 'financeiro:lista' %}"
+           class="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-sm transition">
+          Cancelar
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

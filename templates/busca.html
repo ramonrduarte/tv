@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block title %}Busca — IPTV Manager{% endblock %}
+{% block page_title %}Resultados para "{{ q }}"{% endblock %}
+
+{% block content %}
+<form method="get" class="mb-6 flex gap-2">
+  <input type="text" name="q" value="{{ q }}" autofocus placeholder="Buscar cliente, lista, usuário..."
+         class="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+  <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition">
+    Buscar
+  </button>
+</form>
+
+{% if q %}
+
+<!-- Clientes -->
+<div class="mb-6">
+  <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wide mb-3">
+    Clientes <span class="text-slate-400 font-normal">({{ clientes_r.count }})</span>
+  </h2>
+  {% if clientes_r %}
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    {% for c in clientes_r %}
+    <a href="{% url 'clientes:detalhe' c.pk %}"
+       class="flex items-center justify-between px-5 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition">
+      <div>
+        <span class="text-sm font-medium text-slate-800">{{ c.nome }}</span>
+        {% if c.apelido %}<span class="text-xs text-slate-400 ml-2">({{ c.apelido }})</span>{% endif %}
+      </div>
+      <span class="text-xs text-slate-500">{{ c.whatsapp }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm text-slate-400">Nenhum cliente encontrado.</p>
+  {% endif %}
+</div>
+
+<!-- Listas -->
+<div>
+  <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wide mb-3">
+    Listas <span class="text-slate-400 font-normal">({{ listas_r.count }})</span>
+  </h2>
+  {% if listas_r %}
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    {% for l in listas_r %}
+    <a href="{% url 'listas:detalhe' l.pk %}"
+       class="flex items-center justify-between px-5 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition">
+      <div>
+        <span class="text-sm font-medium text-slate-800">{{ l.nome }}</span>
+        <span class="text-xs text-slate-400 ml-2">{{ l.cliente.nome }}</span>
+      </div>
+      <span class="text-xs font-mono text-slate-500">{{ l.usuario }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm text-slate-400">Nenhuma lista encontrada.</p>
+  {% endif %}
+</div>
+
+{% endif %}
+{% endblock %}

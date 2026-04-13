@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titulo }} — IPTV Manager{% endblock %}
+{% block page_title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="max-w-lg">
+  <div class="mb-4">
+    <a href="{% url 'listas:detalhe' lista.pk %}" class="text-sm text-blue-600 hover:underline">
+      ← Voltar para {{ lista.nome }}
+    </a>
+  </div>
+
+  {% if lista.servidor %}
+  <div class="mb-4 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+    Exibindo apps compatíveis com <strong>{{ lista.servidor.nome }}</strong>.
+    {% if not lista.servidor.apps.exists %}
+    Nenhum app vinculado a este servidor ainda — exibindo todos.
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+    <form method="post" class="space-y-5">
+      {% csrf_token %}
+      {% for field in form %}
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">
+          {{ field.label }}{% if field.field.required %}<span class="text-red-500">*</span>{% endif %}
+        </label>
+        {{ field }}
+        {% if field.errors %}<p class="text-xs text-red-600 mt-1">{{ field.errors|join:", " }}</p>{% endif %}
+        {% if field.help_text %}<p class="text-xs text-slate-400 mt-1">{{ field.help_text }}</p>{% endif %}
+      </div>
+      {% endfor %}
+      <div class="flex items-center gap-3 pt-2">
+        <button type="submit"
+                class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm transition">
+          {{ btn_label }}
+        </button>
+        <a href="{% url 'listas:detalhe' lista.pk %}"
+           class="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-sm transition">
+          Cancelar
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

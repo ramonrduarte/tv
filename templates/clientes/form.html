@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titulo }} — IPTV Manager{% endblock %}
+{% block page_title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="max-w-lg" x-data="{ temPagador: false }">
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+    <form method="post" class="space-y-5">
+      {% csrf_token %}
+
+      <!-- Dados do cliente -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">
+          Nome <span class="text-red-500">*</span>
+        </label>
+        {{ form.nome }}
+        {% if form.nome.errors %}<p class="text-xs text-red-600 mt-1">{{ form.nome.errors|join:", " }}</p>{% endif %}
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Apelido / Como chama</label>
+        {{ form.apelido }}
+        <p class="text-xs text-slate-400 mt-1">Usado nas mensagens do WhatsApp. Se vazio, usa o primeiro nome.</p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">
+          WhatsApp <span class="text-red-500">*</span>
+        </label>
+        {{ form.whatsapp }}
+        {% if form.whatsapp.errors %}<p class="text-xs text-red-600 mt-1">{{ form.whatsapp.errors|join:", " }}</p>{% endif %}
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Observações</label>
+        {{ form.notas }}
+      </div>
+
+      <div class="flex items-center gap-2">
+        {{ form.ativo }}
+        <label class="text-sm font-medium text-slate-700">Cliente ativo</label>
+      </div>
+
+      <!-- Seção pagador -->
+      <div class="border-t border-slate-100 pt-5">
+        <div class="flex items-center gap-3 cursor-pointer" @click="temPagador = !temPagador">
+          <input type="checkbox" name="tem_pagador_diferente" id="tem_pagador_diferente"
+                 class="w-4 h-4 text-blue-600 rounded cursor-pointer"
+                 x-model="temPagador" />
+          <label for="tem_pagador_diferente" class="text-sm font-medium text-slate-700 cursor-pointer select-none">
+            Possui pagador diferente do cliente?
+          </label>
+        </div>
+        <p class="text-xs text-slate-400 mt-1 ml-7">
+          Ex: um pai que paga pelo filho. O pagador será salvo para uso nas listas.
+        </p>
+
+        <div x-show="temPagador" x-cloak x-transition class="mt-4 space-y-4 pl-7">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              Nome do Pagador <span class="text-red-500">*</span>
+            </label>
+            {{ form.pagador_nome }}
+            {% if form.pagador_nome.errors %}<p class="text-xs text-red-600 mt-1">{{ form.pagador_nome.errors|join:", " }}</p>{% endif %}
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">WhatsApp do Pagador</label>
+            {{ form.pagador_whatsapp }}
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 pt-2">
+        <button type="submit"
+                class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm transition">
+          {{ btn_label }}
+        </button>
+        <a href="{% url 'clientes:lista' %}"
+           class="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-sm transition">
+          Cancelar
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

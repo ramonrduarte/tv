@@ -1,0 +1,40 @@
+# Claude Code (interno)
+.claude/
+
+# Ambiente virtual
+venv/
+.venv/
+env/
+
+# Variáveis de ambiente (NUNCA versionar)
+.env
+
+# Banco de dados local
+db.sqlite3
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Arquivos estáticos gerados
+staticfiles/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Build
+*.egg-info/
+dist/
+build/

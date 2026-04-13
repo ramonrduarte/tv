@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ cliente.nome }} — IPTV Manager{% endblock %}
+{% block page_title %}{{ cliente.nome }}{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-2">
+  <a href="{% url 'clientes:editar' cliente.pk %}"
+     class="px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">
+    Editar
+  </a>
+  <a href="{% url 'listas:nova' %}?cliente={{ cliente.pk }}"
+     class="px-3 py-1.5 text-xs font-medium bg-slate-700 hover:bg-slate-800 text-white rounded-lg transition">
+    + Nova Lista
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+  <!-- Info do cliente -->
+  <div class="lg:col-span-1">
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+      <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">Informações</h2>
+      <dl class="space-y-3">
+        <div>
+          <dt class="text-xs text-slate-400">Nome</dt>
+          <dd class="text-sm font-medium text-slate-800">{{ cliente.nome }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-slate-400">WhatsApp</dt>
+          <dd class="flex items-center gap-2">
+            <span class="text-sm font-medium text-slate-800">{{ cliente.whatsapp }}</span>
+            <a href="https://wa.me/55{{ cliente.whatsapp|cut:' '|cut:'('|cut:')'|cut:'-' }}"
+               target="_blank"
+               class="text-xs px-2 py-0.5 bg-green-500 hover:bg-green-600 text-white rounded font-medium transition">
+              Abrir
+            </a>
+          </dd>
+        </div>
+        {% if cliente.apelido %}
+        <div>
+          <dt class="text-xs text-slate-400">Apelido</dt>
+          <dd class="text-sm font-medium text-slate-800">{{ cliente.apelido }}</dd>
+        </div>
+        {% endif %}
+        <div>
+          <dt class="text-xs text-slate-400">Status</dt>
+          <dd>
+            {% if cliente.ativo %}
+            <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">Ativo</span>
+            {% else %}
+            <span class="text-xs px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full font-medium">Inativo</span>
+            {% endif %}
+          </dd>
+        </div>
+        {% if cliente.notas %}
+        <div>
+          <dt class="text-xs text-slate-400">Observações</dt>
+          <dd class="text-sm text-slate-600">{{ cliente.notas }}</dd>
+        </div>
+        {% endif %}
+        <div>
+          <dt class="text-xs text-slate-400">Cadastrado em</dt>
+          <dd class="text-sm text-slate-600">{{ cliente.criado_em|date:"d/m/Y" }}</dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+
+  <!-- Listas do cliente -->
+  <div class="lg:col-span-2 space-y-4">
+    <h2 class="text-sm font-semibold text-slate-700">Listas de Canais ({{ listas.count }})</h2>
+
+    {% for lista in listas %}
+    {% with status=lista.status_pagamento status_display=lista.status_pagamento_display %}
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="px-5 py-3.5 flex items-center justify-between border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <a href="{% url 'listas:detalhe' lista.pk %}" class="font-semibold text-slate-800 hover:text-blue-600 text-sm">
+            {{ lista.nome }}
+          </a>
+          {% if not lista.ativa %}
+          <span class="text-xs px-1.5 py-0.5 bg-slate-100 text-slate-400 rounded">Inativa</span>
+          {% endif %}
+        </div>
+        {% if status == 'atrasado' %}
+        <span class="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">
+          Atrasado
+        </span>
+        {% endif %}
+      </div>
+      <div class="px-5 py-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-400">Servidor:</span>
+          <span class="text-slate-700 ml-1">{{ lista.dns_efetivo|default:"—" }}</span>
+          {% if lista.dns_efetivo %}
+          <button onclick="copyText('{{ lista.dns_efetivo }}', this)" title="Copiar URL"
+            class="ml-1 text-slate-400 hover:text-blue-600 transition" type="button">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+          </button>
+          {% endif %}
+        </div>
+        <div class="col-span-2 flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2 gap-3">
+          <div class="flex items-center gap-4">
+            <span class="font-mono text-slate-700">👤 Usuário: <strong>{{ lista.usuario }}</strong></span>
+            <span class="font-mono text-slate-700">🔒 Senha: <strong>{{ lista.senha }}</strong></span>
+          </div>
+          <button onclick="copyText('👤 Usuário: {{ lista.usuario }}\n🔒 Senha: {{ lista.senha }}', this)"
+            title="Copiar usuário e senha"
+            class="flex items-center gap-1 text-xs text-slate-500 hover:text-blue-600 transition whitespace-nowrap" type="button">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            Copiar
+          </button>
+        </div>
+        <div>
+          <span class="text-slate-400">Telas:</span>
+          <span class="text-slate-700 ml-1">{{ lista.num_telas }}</span>
+        </div>
+        {% if lista.aparelho %}
+        <div>
+          <span class="text-slate-400">Aparelho:</span>
+          <span class="text-slate-700 ml-1">{{ lista.aparelho }}</span>
+        </div>
+        {% endif %}
+        {% with prox=lista.proxima_data_vencimento %}
+        {% if prox %}
+        <div>
+          <span class="text-slate-400">Próx. vencimento:</span>
+          <span class="text-slate-700 ml-1">{{ prox|date:"d/m/Y" }}</span>
+        </div>
+        {% endif %}
+        {% endwith %}
+        {% if lista.pagador %}
+        <div class="col-span-2">
+          <span class="text-slate-400">Pagador:</span>
+          <span class="text-slate-700 ml-1">{{ lista.pagador.nome }} ({{ lista.pagador.whatsapp }})</span>
+        </div>
+        {% endif %}
+        {% if lista.ultima_atualizacao %}
+        <div>
+          <span class="text-slate-400">Últ. atualização:</span>
+          <span class="text-slate-700 ml-1">{{ lista.ultima_atualizacao|date:"d/m/Y" }}</span>
+        </div>
+        {% endif %}
+      </div>
+      <div class="px-5 pb-3 flex items-center gap-2">
+        <a href="{% url 'listas:detalhe' lista.pk %}"
+           class="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-medium transition">
+          Ver detalhes
+        </a>
+        <a href="{% url 'financeiro:nova' %}?lista={{ lista.pk }}"
+           class="text-xs px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 rounded font-medium transition">
+          + Mensalidade
+        </a>
+      </div>
+    </div>
+    {% endwith %}
+    {% empty %}
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-10 text-center text-sm text-slate-400">
+      Nenhuma lista cadastrada para este cliente.
+      <a href="{% url 'listas:nova' %}?cliente={{ cliente.pk }}" class="text-blue-600 hover:underline block mt-1">
+        Adicionar lista →
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    const original = btn.innerHTML;
+    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+    setTimeout(() => { btn.innerHTML = original; }, 1500);
+  });
+}
+</script>
+{% endblock %}

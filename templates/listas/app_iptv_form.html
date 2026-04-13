@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titulo }} — IPTV Manager{% endblock %}
+{% block page_title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="max-w-lg">
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+    <form method="post" class="space-y-5">
+      {% csrf_token %}
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">
+          Nome do Aplicativo <span class="text-red-500">*</span>
+        </label>
+        {{ form.nome }}
+        {% if form.nome.errors %}<p class="text-xs text-red-600 mt-1">{{ form.nome.errors|join:", " }}</p>{% endif %}
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-2">
+          Servidores Compatíveis
+        </label>
+        <p class="text-xs text-slate-400 mb-3">
+          Selecione em quais servidores este app funciona. Ao adicionar um app a uma lista,
+          apenas apps vinculados ao servidor da lista serão exibidos.
+        </p>
+        <div class="space-y-2 border border-slate-200 rounded-lg p-3">
+          {% for checkbox in form.servidores %}
+          <label class="flex items-center gap-2 cursor-pointer hover:bg-slate-50 rounded px-2 py-1">
+            {{ checkbox.tag }}
+            <span class="text-sm text-slate-700">{{ checkbox.choice_label }}</span>
+          </label>
+          {% empty %}
+          <p class="text-sm text-slate-400 italic">Nenhum servidor cadastrado ainda.</p>
+          {% endfor %}
+        </div>
+        {% if form.servidores.errors %}<p class="text-xs text-red-600 mt-1">{{ form.servidores.errors|join:", " }}</p>{% endif %}
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Observações</label>
+        {{ form.notas }}
+      </div>
+
+      <div class="flex items-center gap-3 pt-2">
+        <button type="submit"
+                class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm transition">
+          {{ btn_label }}
+        </button>
+        <a href="{% url 'listas:aplicativos' %}"
+           class="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-sm transition">
+          Cancelar
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
