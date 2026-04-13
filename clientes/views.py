@@ -259,6 +259,8 @@ class ClienteCreateView(LoginRequiredMixin, CreateView):
         else:
             messages.success(self.request, 'Cliente cadastrado com sucesso!')
 
+        if self.request.POST.get('outro'):
+            return redirect('clientes:novo')
         return redirect('clientes:detalhe', pk=cliente.pk)
 
 

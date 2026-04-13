@@ -76,6 +76,12 @@
                 class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm transition">
           {{ btn_label }}
         </button>
+        {% if not editando %}
+        <button type="submit" name="outro" value="1"
+                class="px-5 py-2 bg-slate-700 hover:bg-slate-800 text-white font-medium rounded-lg text-sm transition">
+          Salvar e cadastrar outro
+        </button>
+        {% endif %}
         <a href="{% url 'clientes:lista' %}"
            class="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-sm transition">
           Cancelar
