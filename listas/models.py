@@ -64,6 +64,10 @@ class AppIPTV(models.Model):
         Servidor, blank=True,
         related_name='apps', verbose_name='Servidores compatíveis'
     )
+    instrucoes = models.TextField(
+        'Instruções de Cadastro', blank=True,
+        help_text='Modelo de texto para orientar o cliente no cadastro. Disponível para cópia rápida na listagem.'
+    )
     notas = models.TextField('Observações', blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 
