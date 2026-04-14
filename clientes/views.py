@@ -2,15 +2,32 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from django.shortcuts import render, get_object_or_404, redirect
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView
+from django.views.generic import ListView, CreateView, UpdateView
 from django.urls import reverse_lazy
 from datetime import date, timedelta
+import calendar
 from django.db.models import Sum, F, ExpressionWrapper, DecimalField, Count, Q
 
 from .models import Cliente, Pagador, TemplateMensagem
 from .forms import ClienteForm, PagadorForm
 from listas.models import ListaCanais
 from financeiro.models import Mensalidade
+
+
+def _proxima_ocorrencia_dia(dia, a_partir_de):
+    """
+    Retorna a próxima data que cai no mesmo 'dia' do mês a partir de 'a_partir_de'.
+    Ex: dia=7, a_partir_de=01/04 → 07/04. dia=7, a_partir_de=10/04 → 07/05.
+    """
+    ano, mes = a_partir_de.year, a_partir_de.month
+    ultimo = calendar.monthrange(ano, mes)[1]
+    candidata = date(ano, mes, min(dia, ultimo))
+    if candidata < a_partir_de:
+        mes = mes % 12 + 1
+        ano = ano + (1 if mes == 1 else 0)
+        ultimo = calendar.monthrange(ano, mes)[1]
+        candidata = date(ano, mes, min(dia, ultimo))
+    return candidata
 
 
 def gerar_proximas_mensalidades():
@@ -21,6 +38,7 @@ def gerar_proximas_mensalidades():
     from listas.models import add_one_month
 
     hoje = date.today()
+    inicio_mes_atual = hoje.replace(day=1)
 
     # Primeiro: atualiza pendentes vencidas para atrasado
     Mensalidade.objects.filter(status='pendente', vencimento__lt=hoje).update(status='atrasado')
@@ -30,19 +48,22 @@ def gerar_proximas_mensalidades():
         ultima = lista.mensalidades.order_by('-vencimento').first()
 
         if ultima is None:
-            # Nunca teve mensalidade — cria com a data de ativação
-            # Se a data de ativação já passou, usa hoje para não gerar retroativo
-            proxima = max(lista.data_ativacao, hoje)
+            # Nunca teve mensalidade — calcula próxima ocorrência do dia de ativação
+            # respeitando controle_desde se definido
+            referencia = lista.controle_desde or lista.data_ativacao
+            if lista.data_ativacao >= referencia:
+                proxima = lista.data_ativacao
+            else:
+                proxima = _proxima_ocorrencia_dia(lista.data_ativacao.day, referencia)
         elif ultima.status == 'pago':
-            # Última foi paga — gera a do próximo mês
+            # Última foi paga — gera a do próximo mês mantendo o dia original
             proxima = add_one_month(ultima.vencimento)
         else:
             # Tem uma pendente/atrasada — não gera nova
             continue
 
-        # Não cria mensalidade retroativa: evita gerar registro que já venceu
-        # e seria imediatamente marcado como atrasado pelo save() do model
-        if proxima < hoje:
+        # Não gera mensalidades de meses anteriores ao mês atual
+        if proxima < inicio_mes_atual:
             continue
 
         # Só cria se ainda não existe mensalidade para esse vencimento
@@ -414,7 +435,6 @@ def relatorios(request):
         .order_by('-referencia')[:6]
     )
     # Formata referência YYYY-MM → Mês/Ano
-    import calendar
     meses_pt = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
                 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
     receita_formatada = []
