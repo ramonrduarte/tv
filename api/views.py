@@ -325,13 +325,13 @@ class PagamentoAvulsoView(APIView):
                 'valor_enviado': str(valor_enviado),
             }, status=status.HTTP_200_OK)
 
-        # Distribui o valor pelas mensalidades (mais antiga primeiro)
+        # Distribui o valor pelas mensalidades existentes (mais antiga primeiro)
         pagas = []
         saldo = valor_enviado
 
         for m in mensalidades_pendentes:
             if saldo < m.valor:
-                break  # Não cobre esta mensalidade — para aqui
+                break
             m.status = 'pago'
             m.data_pagamento = data_pagamento
             if notas:
@@ -340,8 +340,44 @@ class PagamentoAvulsoView(APIView):
             saldo -= m.valor
             pagas.append(m)
 
-        # Mensalidades que ainda ficaram pendentes/atrasadas
-        ids_pagos = [m.id for m in pagas]
+        # Se ainda sobra saldo, gera mensalidades futuras e paga
+        if saldo > 0:
+            from listas.models import add_one_month
+
+            for lista in listas:
+                if not lista.data_ativacao:
+                    continue
+                while saldo >= lista.valor_mensalidade and lista.valor_mensalidade > 0:
+                    # Próximo vencimento desta lista
+                    ultima_desta = (
+                        Mensalidade.objects
+                        .filter(lista=lista)
+                        .order_by('-vencimento')
+                        .first()
+                    )
+                    if ultima_desta:
+                        proximo_venc = add_one_month(ultima_desta.vencimento)
+                    else:
+                        proximo_venc = lista.data_ativacao
+
+                    # Evita duplicata
+                    if Mensalidade.objects.filter(lista=lista, vencimento=proximo_venc).exists():
+                        break
+
+                    nova = Mensalidade.objects.create(
+                        lista=lista,
+                        valor=lista.valor_mensalidade,
+                        vencimento=proximo_venc,
+                        referencia=proximo_venc.strftime('%Y-%m'),
+                        status='pago',
+                        data_pagamento=data_pagamento,
+                        notas=notas or '',
+                    )
+                    saldo -= lista.valor_mensalidade
+                    pagas.append(nova)
+
+        # Mensalidades que ainda ficaram pendentes
+        ids_pagos = {m.id for m in pagas}
         ainda_pendentes = [m for m in mensalidades_pendentes if m.id not in ids_pagos]
 
         total_pago = valor_enviado - saldo
@@ -355,7 +391,7 @@ class PagamentoAvulsoView(APIView):
 
         if saldo > 0:
             resposta['troco'] = str(saldo)
-            resposta['aviso'] = f'Valor enviado excede o total em aberto. Troco: R$ {saldo}'
+            resposta['aviso'] = f'Valor enviado excede o total. Troco: R$ {saldo}'
 
         if ainda_pendentes:
             total_restante = sum(m.valor for m in ainda_pendentes)
