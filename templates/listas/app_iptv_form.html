@@ -40,8 +40,16 @@
 
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-1">Instruções de Cadastro</label>
-        {{ form.instrucoes }}
-        <p class="text-xs text-slate-400 mt-1">{{ form.instrucoes.help_text }}</p>
+        {{ form.instrucoes_cadastro }}
+        <p class="text-xs text-slate-400 mt-1">{{ form.instrucoes_cadastro.help_text }}</p>
+        {% if form.instrucoes_cadastro.errors %}<p class="text-xs text-red-600 mt-1">{{ form.instrucoes_cadastro.errors|join:", " }}</p>{% endif %}
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Instruções de Edição</label>
+        {{ form.instrucoes_edicao }}
+        <p class="text-xs text-slate-400 mt-1">{{ form.instrucoes_edicao.help_text }}</p>
+        {% if form.instrucoes_edicao.errors %}<p class="text-xs text-red-600 mt-1">{{ form.instrucoes_edicao.errors|join:", " }}</p>{% endif %}
       </div>
 
       <div>

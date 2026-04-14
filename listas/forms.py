@@ -99,13 +99,17 @@ class ServidorForm(forms.ModelForm):
 class AppIPTVForm(forms.ModelForm):
     class Meta:
         model = AppIPTV
-        fields = ['nome', 'servidores', 'instrucoes', 'notas']
+        fields = ['nome', 'servidores', 'instrucoes_cadastro', 'instrucoes_edicao', 'notas']
         widgets = {
             'nome': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'ex: TiviMate, IPTV Smarters'}),
             'servidores': forms.CheckboxSelectMultiple(),
-            'instrucoes': forms.Textarea(attrs={
-                'class': TEXTAREA_CLASS, 'rows': 6,
-                'placeholder': 'Ex: Para cadastrar no CLOUDDY:\n1. Abra o app\n2. Clique em "Adicionar lista"\n3. Informe o servidor: {servidor}\n4. Usuário: {usuario}\n5. Senha: {senha}',
+            'instrucoes_cadastro': forms.Textarea(attrs={
+                'class': TEXTAREA_CLASS, 'rows': 5,
+                'placeholder': 'Ex: Para cadastrar no app:\n1. Abra o app\n2. Clique em "Adicionar lista"\n3. Servidor: {servidor}\n4. Usuário: {usuario}\n5. Senha: {senha}',
+            }),
+            'instrucoes_edicao': forms.Textarea(attrs={
+                'class': TEXTAREA_CLASS, 'rows': 5,
+                'placeholder': 'Ex: Para editar no app:\n1. Acesse as configurações\n2. Selecione a lista\n3. Altere os dados necessários',
             }),
             'notas': forms.Textarea(attrs={'class': TEXTAREA_CLASS, 'rows': 2}),
         }
