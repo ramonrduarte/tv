@@ -246,8 +246,12 @@ class ClienteListView(LoginRequiredMixin, ListView):
         qs = Cliente.objects.prefetch_related('listas')
         q = self.request.GET.get('q', '')
         if q:
-            qs = qs.filter(nome__icontains=q) | Cliente.objects.filter(whatsapp__icontains=q)
-        return qs.distinct()
+            qs = (
+                Cliente.objects.filter(nome__unaccent__icontains=q)
+                | Cliente.objects.filter(apelido__unaccent__icontains=q)
+                | Cliente.objects.filter(whatsapp__icontains=q)
+            )
+        return qs.prefetch_related('listas').distinct()
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
