@@ -325,10 +325,32 @@ def cliente_excluir(request, pk):
 @login_required
 def cliente_detalhe(request, pk):
     cliente = get_object_or_404(Cliente, pk=pk)
-    listas = cliente.listas.select_related('servidor', 'pagador').prefetch_related('apps__app').all()
+    listas = list(
+        cliente.listas
+        .select_related('servidor', 'pagador', 'plano')
+        .prefetch_related('apps__app')
+        .all()
+    )
+
+    for lista in listas:
+        # Últimas 6 mensalidades em ordem cronológica (antiga → recente) para o histórico
+        lista.historico_pagamento = list(
+            lista.mensalidades.order_by('-vencimento')[:6]
+        )[::-1]
+
+    ativas = [l for l in listas if l.ativa]
+    resumo = {
+        'total': len(listas),
+        'ativas': len(ativas),
+        'em_dia': sum(1 for l in ativas if l.status_pagamento() == 'em_dia'),
+        'atrasado': sum(1 for l in ativas if l.status_pagamento() == 'atrasado'),
+        'pendente': sum(1 for l in ativas if l.status_pagamento() == 'pendente'),
+    }
+
     return render(request, 'clientes/detalhe.html', {
         'cliente': cliente,
         'listas': listas,
+        'resumo': resumo,
     })
 
 
