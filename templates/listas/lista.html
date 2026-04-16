@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load clientes_extras %}
 
 {% block title %}Listas de Canais — IPTV Manager{% endblock %}
 {% block page_title %}Listas de Canais{% endblock %}
@@ -34,12 +35,23 @@
   <table class="w-full text-sm">
     <thead>
       <tr class="border-b border-slate-100 bg-slate-50">
-        <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Lista</th>
-        <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cliente</th>
-        <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Servidor</th>
-        <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Telas</th>
+        {% sort_url 'nome' as url_nome %}{% sort_url 'cliente' as url_cliente %}{% sort_url 'servidor' as url_servidor %}{% sort_url 'telas' as url_telas %}{% sort_url 'atualizacao' as url_atu %}
+        <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          <a href="{{ url_nome }}" class="hover:text-slate-800 flex items-center gap-1">Lista {% sort_icon 'nome' %}</a>
+        </th>
+        <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          <a href="{{ url_cliente }}" class="hover:text-slate-800 flex items-center gap-1">Cliente {% sort_icon 'cliente' %}</a>
+        </th>
+        <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          <a href="{{ url_servidor }}" class="hover:text-slate-800 flex items-center gap-1">Servidor {% sort_icon 'servidor' %}</a>
+        </th>
+        <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          <a href="{{ url_telas }}" class="hover:text-slate-800 flex items-center justify-center gap-1">Telas {% sort_icon 'telas' %}</a>
+        </th>
         <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-        <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Últ. atualização</th>
+        <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          <a href="{{ url_atu }}" class="hover:text-slate-800 flex items-center gap-1">Últ. atualização {% sort_icon 'atualizacao' %}</a>
+        </th>
         <th class="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Ações</th>
       </tr>
     </thead>

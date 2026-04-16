@@ -242,20 +242,42 @@ class ClienteListView(LoginRequiredMixin, ListView):
     template_name = 'clientes/lista.html'
     context_object_name = 'clientes'
 
+    SORT_FIELDS = {
+        'nome': 'nome',
+        'whatsapp': 'whatsapp',
+    }
+
     def get_queryset(self):
         qs = Cliente.objects.prefetch_related('listas')
         q = self.request.GET.get('q', '')
         if q:
-            qs = (
-                Cliente.objects.filter(nome__unaccent__icontains=q)
-                | Cliente.objects.filter(apelido__unaccent__icontains=q)
-                | Cliente.objects.filter(whatsapp__icontains=q)
-            )
-        return qs.prefetch_related('listas').distinct()
+            from django.db import connection
+            if connection.vendor == 'postgresql':
+                qs = (
+                    Cliente.objects.filter(nome__unaccent__icontains=q)
+                    | Cliente.objects.filter(apelido__unaccent__icontains=q)
+                    | Cliente.objects.filter(whatsapp__icontains=q)
+                )
+            else:
+                qs = (
+                    Cliente.objects.filter(nome__icontains=q)
+                    | Cliente.objects.filter(apelido__icontains=q)
+                    | Cliente.objects.filter(whatsapp__icontains=q)
+                )
+
+        sort = self.request.GET.get('sort', 'nome')
+        direction = self.request.GET.get('dir', 'asc')
+        orm_field = self.SORT_FIELDS.get(sort, 'nome')
+        if direction == 'desc':
+            orm_field = '-' + orm_field
+
+        return qs.prefetch_related('listas').distinct().order_by(orm_field)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['q'] = self.request.GET.get('q', '')
+        ctx['sort'] = self.request.GET.get('sort', 'nome')
+        ctx['sort_dir'] = self.request.GET.get('dir', 'asc')
         return ctx
 
 

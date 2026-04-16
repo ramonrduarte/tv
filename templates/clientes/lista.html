@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load clientes_extras %}
 
 {% block title %}Clientes — IPTV Manager{% endblock %}
 {% block page_title %}Clientes{% endblock %}
@@ -29,8 +30,13 @@
   <table class="w-full text-sm">
     <thead>
       <tr class="border-b border-slate-100 bg-slate-50">
-        <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Nome</th>
-        <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">WhatsApp</th>
+        {% sort_url 'nome' as url_nome %}{% sort_url 'whatsapp' as url_wpp %}
+        <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          <a href="{{ url_nome }}" class="hover:text-slate-800 flex items-center gap-1">Nome {% sort_icon 'nome' %}</a>
+        </th>
+        <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          <a href="{{ url_wpp }}" class="hover:text-slate-800 flex items-center gap-1">WhatsApp {% sort_icon 'whatsapp' %}</a>
+        </th>
         <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Listas</th>
         <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
         <th class="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Ações</th>

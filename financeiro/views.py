@@ -17,6 +17,15 @@ class MensalidadeListView(LoginRequiredMixin, ListView):
     context_object_name = 'mensalidades'
     paginate_by = 30
 
+    SORT_FIELDS = {
+        'cliente': 'lista__cliente__nome',
+        'lista': 'lista__nome',
+        'vencimento': 'vencimento',
+        'pagamento': 'data_pagamento',
+        'valor': 'valor',
+        'status': 'status',
+    }
+
     def get_queryset(self):
         hoje = timezone.now().date()
         # Atualiza pendentes vencidas
@@ -34,7 +43,13 @@ class MensalidadeListView(LoginRequiredMixin, ListView):
         if mes:
             qs = qs.filter(referencia=mes)
 
-        return qs.distinct().order_by('-vencimento')
+        sort = self.request.GET.get('sort', 'vencimento')
+        direction = self.request.GET.get('dir', 'desc')
+        orm_field = self.SORT_FIELDS.get(sort, 'vencimento')
+        if direction == 'desc':
+            orm_field = '-' + orm_field
+
+        return qs.distinct().order_by(orm_field)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -42,6 +57,8 @@ class MensalidadeListView(LoginRequiredMixin, ListView):
         ctx['q'] = self.request.GET.get('q', '')
         ctx['mes'] = self.request.GET.get('mes', '')
         ctx['status_choices'] = Mensalidade.STATUS_CHOICES
+        ctx['sort'] = self.request.GET.get('sort', 'vencimento')
+        ctx['sort_dir'] = self.request.GET.get('dir', 'desc')
         return ctx
 
 

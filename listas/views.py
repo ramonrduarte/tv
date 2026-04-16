@@ -14,6 +14,14 @@ class ListaCanaisListView(LoginRequiredMixin, ListView):
     template_name = 'listas/lista.html'
     context_object_name = 'listas'
 
+    SORT_FIELDS = {
+        'nome': 'nome',
+        'cliente': 'cliente__nome',
+        'servidor': 'servidor__nome',
+        'telas': 'num_telas',
+        'atualizacao': 'ultima_atualizacao',
+    }
+
     def get_queryset(self):
         qs = ListaCanais.objects.select_related('cliente', 'servidor', 'pagador')
         q = self.request.GET.get('q', '')
@@ -24,12 +32,21 @@ class ListaCanaisListView(LoginRequiredMixin, ListView):
             qs = qs.filter(ativa=True)
         elif status == 'inativa':
             qs = qs.filter(ativa=False)
-        return qs.distinct()
+
+        sort = self.request.GET.get('sort', 'cliente')
+        direction = self.request.GET.get('dir', 'asc')
+        orm_field = self.SORT_FIELDS.get(sort, 'cliente__nome')
+        if direction == 'desc':
+            orm_field = '-' + orm_field
+
+        return qs.distinct().order_by(orm_field)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['q'] = self.request.GET.get('q', '')
         ctx['status_filtro'] = self.request.GET.get('status', '')
+        ctx['sort'] = self.request.GET.get('sort', 'cliente')
+        ctx['sort_dir'] = self.request.GET.get('dir', 'asc')
         return ctx
 
 
