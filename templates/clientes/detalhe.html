@@ -204,12 +204,6 @@
           <p class="text-xs text-slate-400 mb-0.5">Telas</p>
           <p class="text-sm font-medium text-slate-700">{{ lista.num_telas }}</p>
         </div>
-        {% if lista.aparelho %}
-        <div>
-          <p class="text-xs text-slate-400 mb-0.5">Aparelho</p>
-          <p class="text-sm font-medium text-slate-700">{{ lista.aparelho }}</p>
-        </div>
-        {% endif %}
         {% with prox=lista.proxima_data_vencimento %}
         {% if prox %}
         <div>

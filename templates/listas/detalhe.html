@@ -87,12 +87,6 @@
           <dt class="text-xs text-slate-400">Qtd. Telas</dt>
           <dd class="text-sm text-slate-700">{{ lista.num_telas }}</dd>
         </div>
-        {% if lista.aparelho %}
-        <div>
-          <dt class="text-xs text-slate-400">Aparelho</dt>
-          <dd class="text-sm text-slate-700">{{ lista.aparelho }}</dd>
-        </div>
-        {% endif %}
       </dl>
     </div>
 
@@ -174,7 +168,10 @@
         {% for la in apps %}
         <div class="px-5 py-3.5">
           <div class="flex items-center justify-between mb-1.5">
-            <span class="text-sm font-semibold text-slate-800">{{ la.app.nome }}</span>
+            <div>
+              <span class="text-sm font-semibold text-slate-800">{{ la.app.nome }}</span>
+              {% if la.aparelho %}<span class="ml-2 text-xs text-slate-400">{{ la.aparelho }}</span>{% endif %}
+            </div>
             <div class="flex items-center gap-2">
               <a href="{% url 'listas:app_editar' lista.pk la.pk %}"
                  class="text-xs px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition">
@@ -190,6 +187,9 @@
             </div>
           </div>
           <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+            {% if la.dns_customizado %}
+            <div class="col-span-2"><span class="text-slate-400">DNS:</span> <span class="font-mono text-slate-700">{{ la.dns_customizado }}</span></div>
+            {% endif %}
             {% if la.usuario_app %}
             <div><span class="text-slate-400">Usuário:</span> <span class="font-mono text-slate-700">{{ la.usuario_app }}</span></div>
             {% endif %}

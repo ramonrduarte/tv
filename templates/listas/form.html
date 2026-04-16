@@ -123,18 +123,6 @@
           {% if form.senha.errors %}<p class="text-xs text-red-600 mt-1">{{ form.senha.errors|join:", " }}</p>{% endif %}
         </div>
 
-        <div class="sm:col-span-2">
-          <label class="block text-sm font-medium text-slate-700 mb-1">DNS Customizado</label>
-          {{ form.dns_customizado }}
-          <p class="text-xs text-slate-400 mt-1">{{ form.dns_customizado.help_text }}</p>
-        </div>
-
-        <div class="sm:col-span-2">
-          <label class="block text-sm font-medium text-slate-700 mb-1">Aparelho</label>
-          {{ form.aparelho }}
-          <p class="text-xs text-slate-400 mt-1">{{ form.aparelho.help_text }}</p>
-        </div>
-
         <div class="flex items-center gap-2 pt-5">
           {{ form.ativa }}
           <label class="text-sm font-medium text-slate-700">Lista ativa</label>

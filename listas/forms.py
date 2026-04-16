@@ -24,7 +24,7 @@ class ListaCanaisForm(forms.ModelForm):
         model = ListaCanais
         fields = [
             'cliente', 'pagador', 'plano', 'servidor', 'nome', 'usuario', 'senha',
-            'num_telas', 'dns_customizado', 'aparelho',
+            'num_telas',
             'data_ativacao', 'ultima_atualizacao', 'controle_desde', 'ativa', 'em_teste', 'data_inicio_teste', 'notas'
         ]
         widgets = {
@@ -44,8 +44,6 @@ class ListaCanaisForm(forms.ModelForm):
                 'id': 'id_num_telas',
                 '@input': 'atualizar()',
             }),
-            'dns_customizado': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'ex: iptv.servidor.com:8080'}),
-            'aparelho': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Ex: Fire Stick, Samsung Smart TV, Celular Android'}),
             'data_ativacao': forms.DateInput(attrs={'class': INPUT_CLASS, 'type': 'date'},
                                              format='%Y-%m-%d'),
             'ultima_atualizacao': forms.DateInput(attrs={'class': INPUT_CLASS, 'type': 'date'},
@@ -73,9 +71,11 @@ class ListaAppForm(forms.ModelForm):
 
     class Meta:
         model = ListaApp
-        fields = ['app', 'usuario_app', 'senha_app', 'device_id', 'notas']
+        fields = ['app', 'aparelho', 'dns_customizado', 'usuario_app', 'senha_app', 'device_id', 'notas']
         widgets = {
             'app': forms.Select(attrs={'class': SELECT_CLASS}),
+            'aparelho': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Ex: Fire Stick, Samsung Smart TV, Celular Android'}),
+            'dns_customizado': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'ex: iptv.servidor.com:8080'}),
             'usuario_app': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Usuário no aplicativo'}),
             'senha_app': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Senha no aplicativo'}),
             'device_id': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Device ID ou MAC Address'}),

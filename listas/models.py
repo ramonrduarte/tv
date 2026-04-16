@@ -108,14 +108,6 @@ class ListaCanais(models.Model):
     usuario = models.CharField('Usuário', max_length=200)
     senha = models.CharField('Senha', max_length=200)
     num_telas = models.PositiveSmallIntegerField('Qtd. de Telas', default=1)
-    dns_customizado = models.CharField(
-        'DNS Customizado', max_length=500, blank=True,
-        help_text='Preencha apenas se for diferente do servidor'
-    )
-    aparelho = models.CharField(
-        'Aparelho', max_length=200, blank=True,
-        help_text='Ex: Fire Stick, Samsung Smart TV, Celular Android'
-    )
     valor_mensalidade = models.DecimalField('Valor Mensalidade (R$)', max_digits=10, decimal_places=2, default=0)
     data_ativacao = models.DateField(
         'Data de Ativação', null=True, blank=True,
@@ -143,8 +135,6 @@ class ListaCanais(models.Model):
 
     @property
     def dns_efetivo(self):
-        if self.dns_customizado:
-            return self.dns_customizado
         if self.servidor:
             return f'{self.servidor.dns}:{self.servidor.porta}'
         return '—'
@@ -218,6 +208,14 @@ class ListaCanais(models.Model):
 class ListaApp(models.Model):
     lista = models.ForeignKey(ListaCanais, on_delete=models.CASCADE, related_name='apps', verbose_name='Lista')
     app = models.ForeignKey(AppIPTV, on_delete=models.CASCADE, verbose_name='Aplicativo')
+    dns_customizado = models.CharField(
+        'DNS Customizado', max_length=500, blank=True,
+        help_text='Preencha apenas se diferente do servidor da lista'
+    )
+    aparelho = models.CharField(
+        'Aparelho', max_length=200, blank=True,
+        help_text='Ex: Fire Stick, Samsung Smart TV, Celular Android'
+    )
     usuario_app = models.CharField('Usuário no App', max_length=200, blank=True)
     senha_app = models.CharField('Senha no App', max_length=200, blank=True)
     device_id = models.CharField('Device ID / MAC', max_length=200, blank=True)
@@ -229,3 +227,11 @@ class ListaApp(models.Model):
 
     def __str__(self):
         return f'{self.app.nome} — {self.lista.nome}'
+
+    @property
+    def dns_efetivo(self):
+        if self.dns_customizado:
+            return self.dns_customizado
+        if self.lista.servidor:
+            return f'{self.lista.servidor.dns}:{self.lista.servidor.porta}'
+        return '—'

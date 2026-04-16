@@ -411,8 +411,8 @@ def dns_health_check(request):
     for s in Servidor.objects.filter(ativo=True):
         key = f'{s.dns}:{s.porta}'
         dns_map[key] = s.nome
-    for dns_custom in (ListaCanais.objects
-                       .filter(ativa=True)
+    for dns_custom in (ListaApp.objects
+                       .filter(lista__ativa=True)
                        .exclude(dns_customizado='')
                        .values_list('dns_customizado', flat=True)
                        .distinct()):
@@ -465,8 +465,8 @@ def filtrar_por_servidor(request):
     for s in Servidor.objects.filter(ativo=True):
         key = f'{s.dns}:{s.porta}'
         opcoes_dns[key] = f'{s.nome} — {key}'
-    for dns in (ListaCanais.objects
-                .filter(ativa=True)
+    for dns in (ListaApp.objects
+                .filter(lista__ativa=True)
                 .exclude(dns_customizado='')
                 .values_list('dns_customizado', flat=True)
                 .distinct()):
@@ -477,15 +477,17 @@ def filtrar_por_servidor(request):
     listas = ListaCanais.objects.none()
 
     if dns_escolhido:
-        # Listas com dns_customizado igual ao escolhido
-        q = Q(dns_customizado=dns_escolhido)
-        # Listas sem dns_customizado cujo servidor resulta no mesmo DNS
+        # Listas cujo servidor resulta no DNS escolhido
+        q = Q()
         for s in Servidor.objects.all():
             if f'{s.dns}:{s.porta}' == dns_escolhido:
-                q |= Q(servidor=s, dns_customizado='')
+                q |= Q(servidor=s)
+        # Listas com algum app usando dns_customizado igual ao escolhido
+        q |= Q(apps__dns_customizado=dns_escolhido)
         listas = (
             ListaCanais.objects
             .filter(q, ativa=True)
+            .distinct()
             .select_related('cliente', 'servidor')
             .order_by('cliente__nome')
         )

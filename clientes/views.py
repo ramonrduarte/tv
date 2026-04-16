@@ -10,7 +10,7 @@ from django.db.models import Sum, F, ExpressionWrapper, DecimalField, Count, Q
 
 from .models import Cliente, Pagador, TemplateMensagem
 from .forms import ClienteForm, PagadorForm
-from listas.models import ListaCanais
+from listas.models import ListaCanais, ListaApp
 from financeiro.models import Mensalidade
 
 
@@ -135,8 +135,8 @@ def dashboard(request):
     for s in Servidor.objects.filter(ativo=True):
         key = f'{s.dns}:{s.porta}'
         dns_saude[key] = s.nome
-    for dns_custom in (ListaCanais.objects
-                       .filter(ativa=True)
+    for dns_custom in (ListaApp.objects
+                       .filter(lista__ativa=True)
                        .exclude(dns_customizado='')
                        .values_list('dns_customizado', flat=True)
                        .distinct()):
@@ -464,15 +464,15 @@ def relatorios(request):
     )
 
     por_aparelho = (
-        ListaCanais.objects
-        .filter(ativa=True)
+        ListaApp.objects
+        .filter(lista__ativa=True)
         .exclude(aparelho='')
         .values('aparelho')
         .annotate(total=Count('id'))
         .order_by('-total')
     )
 
-    sem_aparelho = ListaCanais.objects.filter(ativa=True, aparelho='').count()
+    sem_aparelho = ListaApp.objects.filter(lista__ativa=True, aparelho='').count()
 
     # Receita dos últimos 6 meses agrupada por referência
     receita_por_mes = (
