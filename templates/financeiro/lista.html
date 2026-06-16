@@ -175,8 +175,6 @@
 </div>
 {% endif %}
 
-{% endblock %}
-
 <!-- Modal de pagamento com data -->
 <div id="modal-pagar" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50" onclick="if(event.target===this)fecharModalPagar()">
   <div class="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl mx-4">
@@ -202,6 +200,8 @@
     </form>
   </div>
 </div>
+
+{% endblock %}
 
 {% block extra_scripts %}
 <script>
