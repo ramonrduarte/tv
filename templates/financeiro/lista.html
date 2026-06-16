@@ -6,6 +6,10 @@
 
 {% block header_actions %}
 <div class="flex items-center gap-2">
+  <a href="{% url 'financeiro:visao_geral' %}"
+     class="px-3 py-1.5 text-xs font-medium bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg transition">
+    Visão Geral
+  </a>
   <a href="{% url 'financeiro:exportar_csv' %}?tipo=mensalidades{% if status_filtro %}&status={{ status_filtro }}{% endif %}"
      class="px-3 py-1.5 text-xs font-medium bg-slate-700 hover:bg-slate-800 text-white rounded-lg transition">
     Exportar CSV
@@ -117,14 +121,11 @@
           <td class="px-5 py-3 text-right">
             <div class="flex items-center justify-end gap-1.5">
               {% if m.status != 'pago' %}
-              <form method="post" action="{% url 'financeiro:pagar' m.pk %}">
-                {% csrf_token %}
-                <input type="hidden" name="next" value="{% url 'financeiro:lista' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}" />
-                <button type="submit"
-                        class="text-xs px-2.5 py-1 bg-green-100 hover:bg-green-200 text-green-700 rounded font-medium transition">
-                  Pagar
-                </button>
-              </form>
+              <button type="button"
+                      onclick="abrirModalPagar('{% url 'financeiro:pagar' m.pk %}', '{% url 'financeiro:lista' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}')"
+                      class="text-xs px-2.5 py-1 bg-green-100 hover:bg-green-200 text-green-700 rounded font-medium transition">
+                Pagar
+              </button>
               {% endif %}
               <a href="{% url 'financeiro:editar' m.pk %}"
                  class="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded font-medium transition">
@@ -176,6 +177,32 @@
 
 {% endblock %}
 
+<!-- Modal de pagamento com data -->
+<div id="modal-pagar" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50" onclick="if(event.target===this)fecharModalPagar()">
+  <div class="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl mx-4">
+    <h3 class="text-sm font-semibold text-slate-800 mb-4">Registrar Pagamento</h3>
+    <form method="post" id="form-pagar-modal" action="">
+      {% csrf_token %}
+      <input type="hidden" name="next" id="modal-next" value="" />
+      <div class="mb-5">
+        <label class="text-xs font-medium text-slate-600 block mb-1.5">Data do pagamento</label>
+        <input type="date" name="data_pagamento" id="modal-data"
+               class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+      <div class="flex gap-2 justify-end">
+        <button type="button" onclick="fecharModalPagar()"
+                class="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-medium transition">
+          Cancelar
+        </button>
+        <button type="submit"
+                class="px-4 py-1.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition">
+          Confirmar Pagamento
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
 {% block extra_scripts %}
 <script>
   const selectAll = document.getElementById('select-all');
@@ -195,5 +222,20 @@
   });
 
   items.forEach(c => c.addEventListener('change', atualizarBarra));
+
+  function abrirModalPagar(action, nextUrl) {
+    const hoje = new Date().toISOString().split('T')[0];
+    document.getElementById('modal-data').value = hoje;
+    document.getElementById('form-pagar-modal').action = action;
+    document.getElementById('modal-next').value = nextUrl || '';
+    const modal = document.getElementById('modal-pagar');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+  function fecharModalPagar() {
+    const modal = document.getElementById('modal-pagar');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
 </script>
 {% endblock %}

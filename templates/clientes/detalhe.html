@@ -277,6 +277,11 @@
           <div class="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2 text-xs">
             <div class="flex items-center gap-3 flex-wrap min-w-0">
               <span class="font-medium text-slate-700 flex-shrink-0">{{ la.app.nome }}</span>
+              {% if la.data_vencimento %}
+              <span class="{% if la.data_vencimento < hoje %}text-red-600 font-semibold{% else %}text-slate-500{% endif %}">
+                Venc: {{ la.data_vencimento|date:"d/m/Y" }}
+              </span>
+              {% endif %}
               {% if la.usuario_app %}
               <span class="text-slate-500">👤 <span class="font-mono text-slate-700">{{ la.usuario_app }}</span></span>
               {% endif %}
@@ -306,6 +311,13 @@
            class="text-xs px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg font-medium transition">
           Ver detalhes
         </a>
+        {% if lista.mensalidade_pendente %}
+        <button type="button"
+                onclick="abrirModalPagar('{% url 'financeiro:pagar' lista.mensalidade_pendente.pk %}', '{% url 'clientes:detalhe' cliente.pk %}')"
+                class="text-xs px-2.5 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition">
+          Pagar
+        </button>
+        {% endif %}
         <a href="{% url 'financeiro:nova' %}?lista={{ lista.pk }}"
            class="text-xs px-2.5 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-medium transition">
           + Mensalidade
@@ -337,6 +349,32 @@
 </div>
 {% endblock %}
 
+<!-- Modal de pagamento com data -->
+<div id="modal-pagar" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50" onclick="if(event.target===this)fecharModalPagar()">
+  <div class="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl mx-4">
+    <h3 class="text-sm font-semibold text-slate-800 mb-4">Registrar Pagamento</h3>
+    <form method="post" id="form-pagar-modal" action="">
+      {% csrf_token %}
+      <input type="hidden" name="next" id="modal-next" value="" />
+      <div class="mb-5">
+        <label class="text-xs font-medium text-slate-600 block mb-1.5">Data do pagamento</label>
+        <input type="date" name="data_pagamento" id="modal-data"
+               class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+      <div class="flex gap-2 justify-end">
+        <button type="button" onclick="fecharModalPagar()"
+                class="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-medium transition">
+          Cancelar
+        </button>
+        <button type="submit"
+                class="px-4 py-1.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition">
+          Confirmar Pagamento
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
 {% block extra_scripts %}
 <script>
 function copyText(text, btn) {
@@ -345,6 +383,21 @@ function copyText(text, btn) {
     btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
     setTimeout(() => { btn.innerHTML = original; }, 1500);
   });
+}
+
+function abrirModalPagar(action, nextUrl) {
+  const hoje = new Date().toISOString().split('T')[0];
+  document.getElementById('modal-data').value = hoje;
+  document.getElementById('form-pagar-modal').action = action;
+  document.getElementById('modal-next').value = nextUrl || '';
+  const modal = document.getElementById('modal-pagar');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+function fecharModalPagar() {
+  const modal = document.getElementById('modal-pagar');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
 }
 </script>
 {% endblock %}

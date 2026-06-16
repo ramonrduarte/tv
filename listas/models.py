@@ -219,6 +219,10 @@ class ListaApp(models.Model):
     usuario_app = models.CharField('Usuário no App', max_length=200, blank=True)
     senha_app = models.CharField('Senha no App', max_length=200, blank=True)
     device_id = models.CharField('Device ID / MAC', max_length=200, blank=True)
+    data_vencimento = models.DateField(
+        'Vencimento do App', null=True, blank=True,
+        help_text='Data de vencimento/renovação (ex: licença Clouddy)'
+    )
     notas = models.TextField('Observações', blank=True)
 
     class Meta:

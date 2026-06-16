@@ -5,6 +5,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.views.generic import ListView, CreateView, UpdateView
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
+from datetime import date
 
 from .models import Mensalidade
 from .forms import MensalidadeForm
@@ -44,7 +45,7 @@ class MensalidadeListView(LoginRequiredMixin, ListView):
             qs = qs.filter(referencia=mes)
 
         sort = self.request.GET.get('sort', 'vencimento')
-        direction = self.request.GET.get('dir', 'desc')
+        direction = self.request.GET.get('dir', 'asc')
         orm_field = self.SORT_FIELDS.get(sort, 'vencimento')
         if direction == 'desc':
             orm_field = '-' + orm_field
@@ -115,14 +116,41 @@ class MensalidadeUpdateView(LoginRequiredMixin, UpdateView):
         return reverse('listas:detalhe', kwargs={'pk': self.object.lista.pk})
 
 
+def _gerar_proxima_mensalidade_lista(lista):
+    """Gera a próxima mensalidade pendente para uma lista após a última ser paga."""
+    from listas.models import add_one_month
+    if not lista.ativa or not lista.data_ativacao:
+        return
+    hoje = date.today()
+    inicio_mes_atual = hoje.replace(day=1)
+    ultima = lista.mensalidades.order_by('-vencimento').first()
+    if ultima and ultima.status == 'pago':
+        proxima = add_one_month(ultima.vencimento)
+        if proxima >= inicio_mes_atual and not lista.mensalidades.filter(vencimento=proxima).exists():
+            Mensalidade.objects.create(
+                lista=lista,
+                valor=lista.valor_mensalidade,
+                vencimento=proxima,
+                referencia=proxima.strftime('%Y-%m'),
+                status='pendente',
+            )
+
+
 @login_required
 def mensalidade_pagar(request, pk):
-    """Marca uma mensalidade como paga com a data de hoje."""
+    """Marca uma mensalidade como paga, aceitando data customizada via POST."""
     mensalidade = get_object_or_404(Mensalidade, pk=pk)
     if request.method == 'POST':
+        data_str = request.POST.get('data_pagamento', '')
+        try:
+            from datetime import datetime
+            data_pg = datetime.strptime(data_str, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            data_pg = timezone.now().date()
         mensalidade.status = 'pago'
-        mensalidade.data_pagamento = timezone.now().date()
+        mensalidade.data_pagamento = data_pg
         mensalidade.save()
+        _gerar_proxima_mensalidade_lista(mensalidade.lista)
         messages.success(request, f'Pagamento de {mensalidade.referencia} registrado!')
     return redirect(request.POST.get('next', reverse('financeiro:lista')))
 
@@ -149,6 +177,54 @@ def pagar_lote(request):
         else:
             messages.warning(request, 'Nenhuma mensalidade selecionada.')
     return redirect(request.POST.get('next', reverse('financeiro:lista')))
+
+
+@login_required
+def visao_geral(request):
+    """Painel matricial: linhas = listas ativas, colunas = últimos 6 meses."""
+    hoje = date.today()
+
+    # Monta lista dos últimos 6 meses (mais antigo → mais recente)
+    meses = []
+    for i in range(5, -1, -1):
+        ano = hoje.year
+        mes = hoje.month - i
+        while mes <= 0:
+            mes += 12
+            ano -= 1
+        meses.append((ano, mes, date(ano, mes, 1).strftime('%b/%y')))
+
+    listas = (
+        ListaCanais.objects
+        .filter(ativa=True)
+        .select_related('cliente')
+        .prefetch_related('mensalidades')
+        .order_by('cliente__nome', 'nome')
+    )
+
+    linhas = []
+    for lista in listas:
+        celulas = []
+        for ano, mes, label in meses:
+            ref = f'{ano:04d}-{mes:02d}'
+            m = lista.mensalidades.filter(referencia=ref).first()
+            if m:
+                celulas.append({
+                    'status': m.status,
+                    'pk': m.pk,
+                    'valor': m.valor,
+                    'data_pagamento': m.data_pagamento,
+                    'vencimento': m.vencimento,
+                })
+            else:
+                celulas.append({'status': None, 'pk': None})
+        linhas.append({'lista': lista, 'celulas': celulas})
+
+    return render(request, 'financeiro/visao_geral.html', {
+        'meses': meses,
+        'linhas': linhas,
+        'hoje': hoje,
+    })
 
 
 @login_required

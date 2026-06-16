@@ -129,6 +129,20 @@ def dashboard(request):
         .order_by('data_inicio_teste')
     )
 
+    apps_vencidos = (
+        ListaApp.objects
+        .filter(lista__ativa=True, data_vencimento__isnull=False, data_vencimento__lt=hoje)
+        .select_related('lista__cliente', 'app')
+        .order_by('data_vencimento')
+    )
+    apps_vencendo = (
+        ListaApp.objects
+        .filter(lista__ativa=True, data_vencimento__isnull=False,
+                data_vencimento__gte=hoje, data_vencimento__lte=sete_dias)
+        .select_related('lista__cliente', 'app')
+        .order_by('data_vencimento')
+    )
+
     # DNS únicos em uso para o painel de saúde
     from listas.models import Servidor
     dns_saude = {}
@@ -179,6 +193,8 @@ def dashboard(request):
         'tpl_vencendo': TemplateMensagem.get_template('vencendo'),
         'tpl_teste': TemplateMensagem.get_template('teste'),
         'hoje': hoje,
+        'apps_vencidos': apps_vencidos,
+        'apps_vencendo': apps_vencendo,
     })
 
 
@@ -363,6 +379,10 @@ def cliente_detalhe(request, pk):
         lista.historico_pagamento = list(
             lista.mensalidades.order_by('-vencimento')[:6]
         )[::-1]
+        # Mensalidade mais recente ainda não paga (para o botão Pagar)
+        lista.mensalidade_pendente = lista.mensalidades.filter(
+            status__in=['pendente', 'atrasado']
+        ).order_by('-vencimento').first()
 
     ativas = [l for l in listas if l.ativa]
     resumo = {
@@ -377,6 +397,7 @@ def cliente_detalhe(request, pk):
         'cliente': cliente,
         'listas': listas,
         'resumo': resumo,
+        'hoje': date.today(),
     })
 
 

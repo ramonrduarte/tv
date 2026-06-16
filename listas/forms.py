@@ -71,7 +71,7 @@ class ListaAppForm(forms.ModelForm):
 
     class Meta:
         model = ListaApp
-        fields = ['app', 'aparelho', 'dns_customizado', 'usuario_app', 'senha_app', 'device_id', 'notas']
+        fields = ['app', 'aparelho', 'dns_customizado', 'usuario_app', 'senha_app', 'device_id', 'data_vencimento', 'notas']
         widgets = {
             'app': forms.Select(attrs={'class': SELECT_CLASS}),
             'aparelho': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Ex: Fire Stick, Samsung Smart TV, Celular Android'}),
@@ -79,6 +79,7 @@ class ListaAppForm(forms.ModelForm):
             'usuario_app': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Usuário no aplicativo'}),
             'senha_app': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Senha no aplicativo'}),
             'device_id': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Device ID ou MAC Address'}),
+            'data_vencimento': forms.DateInput(attrs={'class': INPUT_CLASS, 'type': 'date'}, format='%Y-%m-%d'),
             'notas': forms.Textarea(attrs={'class': TEXTAREA_CLASS, 'rows': 2}),
         }
 

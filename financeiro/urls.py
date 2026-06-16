@@ -11,4 +11,5 @@ urlpatterns = [
     path('<int:pk>/excluir/', views.mensalidade_excluir, name='excluir'),
     path('pagar-lote/', views.pagar_lote, name='pagar_lote'),
     path('exportar/', views.exportar_csv, name='exportar_csv'),
+    path('visao-geral/', views.visao_geral, name='visao_geral'),
 ]
