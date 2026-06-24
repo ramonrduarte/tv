@@ -116,24 +116,6 @@ class MensalidadeUpdateView(LoginRequiredMixin, UpdateView):
         return reverse('listas:detalhe', kwargs={'pk': self.object.lista.pk})
 
 
-def _gerar_proxima_mensalidade_lista(lista):
-    """Gera a próxima mensalidade pendente para uma lista após a última ser paga."""
-    from listas.models import add_one_month
-    if not lista.ativa or not lista.data_ativacao:
-        return
-    ultima = lista.mensalidades.order_by('-vencimento').first()
-    if ultima and ultima.status == 'pago':
-        proxima = add_one_month(ultima.vencimento)
-        if not lista.mensalidades.filter(vencimento=proxima).exists():
-            Mensalidade.objects.create(
-                lista=lista,
-                valor=lista.valor_mensalidade,
-                vencimento=proxima,
-                referencia=proxima.strftime('%Y-%m'),
-                status='pendente',
-            )
-
-
 @login_required
 def mensalidade_pagar(request, pk):
     """Marca uma mensalidade como paga, aceitando data customizada via POST."""
@@ -147,8 +129,7 @@ def mensalidade_pagar(request, pk):
             data_pg = timezone.now().date()
         mensalidade.status = 'pago'
         mensalidade.data_pagamento = data_pg
-        mensalidade.save()
-        _gerar_proxima_mensalidade_lista(mensalidade.lista)
+        mensalidade.save()  # signal gera a próxima automaticamente
         messages.success(request, f'Pagamento de {mensalidade.referencia} registrado!')
     return redirect(request.POST.get('next', reverse('financeiro:lista')))
 
