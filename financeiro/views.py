@@ -121,12 +121,10 @@ def _gerar_proxima_mensalidade_lista(lista):
     from listas.models import add_one_month
     if not lista.ativa or not lista.data_ativacao:
         return
-    hoje = date.today()
-    inicio_mes_atual = hoje.replace(day=1)
     ultima = lista.mensalidades.order_by('-vencimento').first()
     if ultima and ultima.status == 'pago':
         proxima = add_one_month(ultima.vencimento)
-        if proxima >= inicio_mes_atual and not lista.mensalidades.filter(vencimento=proxima).exists():
+        if not lista.mensalidades.filter(vencimento=proxima).exists():
             Mensalidade.objects.create(
                 lista=lista,
                 valor=lista.valor_mensalidade,
