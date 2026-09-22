@@ -9,6 +9,7 @@ urlpatterns = [
     path('<int:pk>/', views.cliente_detalhe, name='detalhe'),
     path('<int:pk>/editar/', views.ClienteUpdateView.as_view(), name='editar'),
     path('<int:pk>/excluir/', views.cliente_excluir, name='excluir'),
+    path('<int:pk>/alternar-ativo/', views.cliente_alternar_ativo, name='alternar_ativo'),
 
     # Ações
     path('dashboard/encerrar-teste/<int:lista_pk>/', views.encerrar_teste, name='encerrar_teste'),

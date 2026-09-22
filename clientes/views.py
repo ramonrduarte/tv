@@ -3,7 +3,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.generic import ListView, CreateView, UpdateView
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from datetime import date, timedelta
 import calendar
 from django.db.models import Sum, F, ExpressionWrapper, DecimalField, Count, Q
@@ -382,16 +382,30 @@ def cliente_excluir(request, pk):
 
 
 @login_required
+def cliente_alternar_ativo(request, pk):
+    cliente = get_object_or_404(Cliente, pk=pk)
+    if request.method == 'POST':
+        cliente.ativo = not cliente.ativo
+        cliente.save(update_fields=['ativo'])
+        if cliente.ativo:
+            messages.success(request, f'Cliente {cliente.nome} reativado.')
+        else:
+            messages.success(request, f'Cliente {cliente.nome} inativado. O histórico foi mantido.')
+        return redirect(request.POST.get('next') or reverse('clientes:detalhe', kwargs={'pk': pk}))
+    return redirect('clientes:detalhe', pk=pk)
+
+
+@login_required
 def cliente_detalhe(request, pk):
     cliente = get_object_or_404(Cliente, pk=pk)
-    listas = list(
+    todas_listas = list(
         cliente.listas
         .select_related('servidor', 'pagador', 'plano')
         .prefetch_related('apps__app')
         .all()
     )
 
-    for lista in listas:
+    for lista in todas_listas:
         # Últimas 6 mensalidades em ordem cronológica (antiga → recente) para o histórico
         lista.historico_pagamento = list(
             lista.mensalidades.order_by('-vencimento')[:6]
@@ -401,9 +415,10 @@ def cliente_detalhe(request, pk):
             status__in=['pendente', 'atrasado']
         ).order_by('-vencimento').first()
 
-    ativas = [l for l in listas if l.ativa]
+    ativas = [l for l in todas_listas if l.ativa]
+    inativas = [l for l in todas_listas if not l.ativa]
     resumo = {
-        'total': len(listas),
+        'total': len(todas_listas),
         'ativas': len(ativas),
         'em_dia': sum(1 for l in ativas if l.status_pagamento() == 'em_dia'),
         'atrasado': sum(1 for l in ativas if l.status_pagamento() == 'atrasado'),
@@ -412,7 +427,8 @@ def cliente_detalhe(request, pk):
 
     return render(request, 'clientes/detalhe.html', {
         'cliente': cliente,
-        'listas': listas,
+        'listas': ativas,
+        'listas_inativas': inativas,
         'resumo': resumo,
         'hoje': date.today(),
     })

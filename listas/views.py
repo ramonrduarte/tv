@@ -167,6 +167,20 @@ def lista_excluir(request, pk):
     return redirect('listas:detalhe', pk=pk)
 
 
+@login_required
+def lista_alternar_ativa(request, pk):
+    lista = get_object_or_404(ListaCanais, pk=pk)
+    if request.method == 'POST':
+        lista.ativa = not lista.ativa
+        lista.save(update_fields=['ativa'])
+        if lista.ativa:
+            messages.success(request, f'Lista {lista.nome} reativada.')
+        else:
+            messages.success(request, f'Lista {lista.nome} inativada. O histórico foi mantido.')
+        return redirect(request.POST.get('next') or reverse('listas:detalhe', kwargs={'pk': pk}))
+    return redirect('listas:detalhe', pk=pk)
+
+
 # --- Apps por lista ---
 
 @login_required
