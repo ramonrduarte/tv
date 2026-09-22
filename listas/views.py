@@ -27,7 +27,11 @@ class ListaCanaisListView(LoginRequiredMixin, ListView):
         q = self.request.GET.get('q', '')
         status = self.request.GET.get('status', '')
         if q:
-            qs = qs.filter(nome__icontains=q) | ListaCanais.objects.filter(cliente__nome__icontains=q)
+            qs = (
+                qs.filter(nome__icontains=q)
+                | ListaCanais.objects.filter(cliente__nome__icontains=q)
+                | ListaCanais.objects.filter(pagador__nome__icontains=q)
+            )
         if status == 'ativa':
             qs = qs.filter(ativa=True)
         elif status == 'inativa':

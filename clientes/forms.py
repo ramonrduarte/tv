@@ -3,6 +3,7 @@ from .models import Cliente, Pagador
 
 INPUT_CLASS = 'w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
 TEXTAREA_CLASS = 'w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+SELECT_CLASS = 'w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white'
 
 
 class ClienteForm(forms.ModelForm):
@@ -14,6 +15,13 @@ class ClienteForm(forms.ModelForm):
             'class': 'w-4 h-4 text-blue-600 rounded cursor-pointer',
             'x-model': 'temPagador',
         })
+    )
+    pagador_existente = forms.ModelChoiceField(
+        queryset=Pagador.objects.order_by('nome'),
+        required=False,
+        label='Pagador',
+        empty_label='+ Cadastrar novo pagador',
+        widget=forms.Select(attrs={'class': SELECT_CLASS, 'x-model': 'pagadorSelecionado'})
     )
     pagador_nome = forms.CharField(
         required=False, max_length=200, label='Nome do Pagador',
@@ -37,8 +45,8 @@ class ClienteForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
-        if cleaned.get('tem_pagador_diferente') and not cleaned.get('pagador_nome'):
-            self.add_error('pagador_nome', 'Informe o nome do pagador.')
+        if cleaned.get('tem_pagador_diferente') and not cleaned.get('pagador_existente') and not cleaned.get('pagador_nome'):
+            self.add_error('pagador_nome', 'Informe o nome do pagador ou selecione um já cadastrado.')
         return cleaned
 
 

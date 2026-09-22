@@ -244,10 +244,12 @@ def busca_global(request):
     if q:
         clientes_r = Cliente.objects.filter(
             Q(nome__icontains=q) | Q(whatsapp__icontains=q) | Q(apelido__icontains=q)
-        ).order_by('nome')[:20]
+            | Q(listas__pagador__nome__icontains=q)
+        ).distinct().order_by('nome')[:20]
         listas_r = ListaCanais.objects.filter(
             Q(nome__icontains=q) | Q(usuario__icontains=q) | Q(cliente__nome__icontains=q)
-        ).select_related('cliente').order_by('cliente__nome')[:20]
+            | Q(pagador__nome__icontains=q)
+        ).select_related('cliente', 'pagador').order_by('cliente__nome')[:20]
     return render(request, 'busca.html', {'q': q, 'clientes_r': clientes_r, 'listas_r': listas_r})
 
 
@@ -273,12 +275,14 @@ class ClienteListView(LoginRequiredMixin, ListView):
                     Cliente.objects.filter(nome__unaccent__icontains=q)
                     | Cliente.objects.filter(apelido__unaccent__icontains=q)
                     | Cliente.objects.filter(whatsapp__icontains=q)
+                    | Cliente.objects.filter(listas__pagador__nome__unaccent__icontains=q)
                 )
             else:
                 qs = (
                     Cliente.objects.filter(nome__icontains=q)
                     | Cliente.objects.filter(apelido__icontains=q)
                     | Cliente.objects.filter(whatsapp__icontains=q)
+                    | Cliente.objects.filter(listas__pagador__nome__icontains=q)
                 )
 
         sort = self.request.GET.get('sort', 'nome')
@@ -311,14 +315,20 @@ class ClienteCreateView(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         cliente = form.save()
 
-        # Cria pagador junto se informado
-        if form.cleaned_data.get('tem_pagador_diferente') and form.cleaned_data.get('pagador_nome'):
-            Pagador.objects.create(
-                nome=form.cleaned_data['pagador_nome'],
-                whatsapp=form.cleaned_data.get('pagador_whatsapp', ''),
-                notas=f'Pagador de {cliente.nome}',
-            )
-            messages.success(self.request, f'Cliente e pagador cadastrados com sucesso!')
+        if form.cleaned_data.get('tem_pagador_diferente'):
+            pagador_existente = form.cleaned_data.get('pagador_existente')
+            if pagador_existente:
+                messages.success(
+                    self.request,
+                    f'Cliente cadastrado! Selecione o pagador "{pagador_existente.nome}" ao criar as listas dele.'
+                )
+            elif form.cleaned_data.get('pagador_nome'):
+                Pagador.objects.create(
+                    nome=form.cleaned_data['pagador_nome'],
+                    whatsapp=form.cleaned_data.get('pagador_whatsapp', ''),
+                    notas=f'Pagador de {cliente.nome}',
+                )
+                messages.success(self.request, 'Cliente e pagador cadastrados com sucesso!')
         else:
             messages.success(self.request, 'Cliente cadastrado com sucesso!')
 
@@ -342,13 +352,20 @@ class ClienteUpdateView(LoginRequiredMixin, UpdateView):
     def form_valid(self, form):
         cliente = form.save()
 
-        if form.cleaned_data.get('tem_pagador_diferente') and form.cleaned_data.get('pagador_nome'):
-            Pagador.objects.create(
-                nome=form.cleaned_data['pagador_nome'],
-                whatsapp=form.cleaned_data.get('pagador_whatsapp', ''),
-                notas=f'Pagador de {cliente.nome}',
-            )
-            messages.success(self.request, 'Cliente atualizado e pagador adicionado!')
+        if form.cleaned_data.get('tem_pagador_diferente'):
+            pagador_existente = form.cleaned_data.get('pagador_existente')
+            if pagador_existente:
+                messages.success(
+                    self.request,
+                    f'Cliente atualizado! Selecione o pagador "{pagador_existente.nome}" ao criar as listas dele.'
+                )
+            elif form.cleaned_data.get('pagador_nome'):
+                Pagador.objects.create(
+                    nome=form.cleaned_data['pagador_nome'],
+                    whatsapp=form.cleaned_data.get('pagador_whatsapp', ''),
+                    notas=f'Pagador de {cliente.nome}',
+                )
+                messages.success(self.request, 'Cliente atualizado e pagador adicionado!')
         else:
             messages.success(self.request, 'Cliente atualizado com sucesso!')
 

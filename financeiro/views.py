@@ -32,7 +32,7 @@ class MensalidadeListView(LoginRequiredMixin, ListView):
         # Atualiza pendentes vencidas
         Mensalidade.objects.filter(status='pendente', vencimento__lt=hoje).update(status='atrasado')
 
-        qs = Mensalidade.objects.select_related('lista__cliente', 'lista__servidor')
+        qs = Mensalidade.objects.select_related('lista__cliente', 'lista__servidor', 'lista__pagador')
         status = self.request.GET.get('status', '')
         q = self.request.GET.get('q', '')
         mes = self.request.GET.get('mes', '')
@@ -40,7 +40,11 @@ class MensalidadeListView(LoginRequiredMixin, ListView):
         if status:
             qs = qs.filter(status=status)
         if q:
-            qs = qs.filter(lista__cliente__nome__icontains=q) | Mensalidade.objects.filter(lista__nome__icontains=q)
+            qs = (
+                qs.filter(lista__cliente__nome__icontains=q)
+                | Mensalidade.objects.filter(lista__nome__icontains=q)
+                | Mensalidade.objects.filter(lista__pagador__nome__icontains=q)
+            )
         if mes:
             qs = qs.filter(referencia=mes)
 
