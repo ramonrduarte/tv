@@ -298,22 +298,30 @@
               </span>
               {% endif %}
               {% if la.usuario_app %}
-              <span class="text-slate-500">👤 <span class="font-mono text-slate-700">{{ la.usuario_app }}</span></span>
+              <span class="text-slate-500 flex items-center gap-1">👤 <span class="font-mono text-slate-700">{{ la.usuario_app }}</span>
+                <button onclick="copyText('{{ la.usuario_app|escapejs }}', this)" type="button" title="Copiar usuário"
+                        class="text-slate-300 hover:text-blue-600 transition">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                </button>
+              </span>
               {% endif %}
               {% if la.senha_app %}
-              <span class="text-slate-500">🔒 <span class="font-mono text-slate-700">{{ la.senha_app }}</span></span>
+              <span class="text-slate-500 flex items-center gap-1">🔒 <span class="font-mono text-slate-700">{{ la.senha_app }}</span>
+                <button onclick="copyText('{{ la.senha_app|escapejs }}', this)" type="button" title="Copiar senha"
+                        class="text-slate-300 hover:text-blue-600 transition">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                </button>
+              </span>
               {% endif %}
               {% if la.device_id %}
-              <span class="text-slate-400">ID: <span class="font-mono text-slate-600">{{ la.device_id }}</span></span>
+              <span class="text-slate-400 flex items-center gap-1">ID: <span class="font-mono text-slate-600">{{ la.device_id }}</span>
+                <button onclick="copyText('{{ la.device_id|escapejs }}', this)" type="button" title="Copiar Device ID"
+                        class="text-slate-300 hover:text-blue-600 transition">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                </button>
+              </span>
               {% endif %}
             </div>
-            {% if la.usuario_app or la.senha_app %}
-            <button onclick="copyText('{{ la.app.nome }}\nUsuário: {{ la.usuario_app }}\nSenha: {{ la.senha_app }}', this)"
-                    type="button" title="Copiar credenciais do app"
-                    class="flex-shrink-0 ml-2 text-slate-300 hover:text-blue-600 transition">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-            </button>
-            {% endif %}
           </div>
           {% endfor %}
         </div>
