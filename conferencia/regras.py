@@ -1,15 +1,15 @@
 import difflib
 import unicodedata
 from collections import Counter, defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from django.core.cache import cache
 from django.utils import timezone
 
 from listas.models import ListaCanais
 
-from .leitura import CHAVE_CACHE_CONTAGEM, assinar_senha
-from .models import AcessoPainel, DivergenciaIgnorada, LeituraPainel
+from .leitura import assinar_senha, painel_do_servidor
+from .models import AcessoPainel, DivergenciaIgnorada, LeituraPainel, VinculoPainel
 
 NOMES_PAINEL = dict(AcessoPainel.PAINEL_CHOICES)
 
@@ -17,10 +17,10 @@ GRUPOS = [
     ('fora_paineis', 'Ativas no sistema, fora dos painéis', 'Podem ter sido excluídas ou estar com o login errado.', 'red'),
     ('lixeira', 'Na lixeira do painel', 'O acesso foi excluído, mas a lista continua ativa no sistema.', 'red'),
     ('vencida', 'Vencidas no painel', 'A lista está ativa no sistema, mas o acesso já venceu.', 'yellow'),
-    ('dados', 'Dados diferentes', 'Senha, telas, situação, teste, servidor ou WhatsApp não batem.', 'blue'),
+    ('dados', 'Dados diferentes', 'Login, senha, telas, situação, teste, servidor ou WhatsApp não batem.', 'blue'),
     ('inativa', 'Inativas no sistema, ativas no painel', 'O acesso continua liberado no painel.', 'yellow'),
     ('repetido', 'Login repetido', 'O mesmo login aparece em mais de uma lista ativa.', 'blue'),
-    ('fora_sistema', 'Nos painéis, fora do sistema', 'Acessos no painel sem nenhuma lista cadastrada.', 'yellow'),
+    ('fora_sistema', 'Nos painéis, fora do sistema', 'Acessos sem lista vinculada. Se for de uma lista existente, vincule para ver o que mudou.', 'yellow'),
 ]
 
 
@@ -34,6 +34,10 @@ class Divergencia:
     painel: str = ''
     lista_id: int = None
     chave_extra: str = ''
+    vinculo_id: int = None
+    acesso_id: int = None
+    candidatas: list = field(default_factory=list)
+    sugerida_id: int = None
 
     @property
     def chave(self):
@@ -42,18 +46,6 @@ class Divergencia:
     @property
     def descricao(self):
         return f'{self.titulo}: {self.detalhe}'[:300]
-
-
-def painel_do_servidor(servidor):
-    """Liga o nome do servidor ao painel. Servidor desconhecido não é conferido por ausência."""
-    if not servidor:
-        return None
-    nome = servidor.nome.strip().lower()
-    if nome.startswith('bit'):
-        return 'bit'
-    if nome.startswith(('warez', 'knew', 'ww')):
-        return 'knewcms'
-    return ''
 
 
 def _digitos(valor):
@@ -75,18 +67,20 @@ def _apps(lista):
     return ', '.join(a.app.nome for a in lista.apps.all())
 
 
-def _comparar_dados(lista, acesso, painel):
+def _comparar_dados(lista, acesso, painel, vinculo):
     """Diferenças de um acesso válido e ainda fora da lixeira."""
     achados = []
     nome_painel = NOMES_PAINEL[acesso.painel]
     base = f'{acesso.usuario} · {nome_painel}'
 
-    def achar(tipo, detalhe, chave_extra=''):
+    def achar(tipo, detalhe, chave_extra='', vinculo_id=None):
         achados.append(Divergencia(
             'dados', tipo, _titulo(lista), f'{base} · {detalhe}',
-            acesso.usuario, acesso.painel, lista.pk, chave_extra,
+            acesso.usuario, acesso.painel, lista.pk, chave_extra, vinculo_id,
         ))
 
+    if vinculo and acesso.usuario.strip().lower() != lista.usuario.strip().lower():
+        achar('login', f'Login no sistema: {lista.usuario} · no painel: {acesso.usuario}.', lista.usuario.lower(), vinculo.pk)
     if painel and painel != acesso.painel:
         achar('servidor', f'O sistema indica {lista.servidor.nome}, mas o acesso está neste painel.')
     if not acesso.ativo:
@@ -122,8 +116,12 @@ def calcular_divergencias():
     agora = timezone.now()
     lidos = set(LeituraPainel.objects.filter(sucesso=True).values_list('painel', flat=True))
     acessos = defaultdict(dict)
+    por_id = {}
     for acesso in AcessoPainel.objects.all():
         acessos[acesso.usuario.strip().lower()][acesso.painel] = acesso
+        if acesso.painel_id:
+            por_id[(acesso.painel, acesso.painel_id)] = acesso
+    vinculos = {v.lista_id: v for v in VinculoPainel.objects.all()}
 
     listas = list(
         ListaCanais.objects.select_related('cliente', 'servidor')
@@ -132,14 +130,19 @@ def calcular_divergencias():
     achados = []
     usados = set()
     sem_painel = []
+    sem_acesso = []
 
     for lista in listas:
         login = lista.usuario.strip().lower()
         painel = painel_do_servidor(lista.servidor)
-        encontrados = acessos.get(login, {})
-        acesso = encontrados.get(painel) or next(iter(encontrados.values()), None)
+        vinculo = vinculos.get(lista.pk)
+        acesso = por_id.get((vinculo.painel, vinculo.painel_id)) if vinculo else None
+        pelo_vinculo = acesso is not None
+        if not acesso:
+            encontrados = acessos.get(login, {})
+            acesso = encontrados.get(painel) or next(iter(encontrados.values()), None)
         if acesso:
-            usados.add((acesso.painel, login))
+            usados.add((acesso.painel, acesso.usuario.strip().lower()))
 
         if not lista.ativa:
             if acesso and acesso.ativo and not acesso.lixeira and (not acesso.validade or acesso.validade >= agora):
@@ -156,13 +159,17 @@ def calcular_divergencias():
             ))
 
         if not acesso:
+            if not vinculo:
+                sem_acesso.append(lista)
             if painel == '':
                 sem_painel.append(lista)
             elif painel in lidos or (painel is None and len(lidos) == len(NOMES_PAINEL)):
                 onde = NOMES_PAINEL[painel] if painel else 'sem servidor informado'
+                nota = 'o acesso vinculado saiu do painel' if vinculo else 'não encontrado'
                 achados.append(Divergencia(
                     'fora_paineis', 'fora_paineis', _titulo(lista),
-                    f'{lista.usuario} · {onde} · não encontrado.', lista.usuario, painel or '', lista.pk,
+                    f'{lista.usuario} · {onde} · {nota}.', lista.usuario, painel or '', lista.pk,
+                    vinculo_id=vinculo.pk if vinculo else None,
                 ))
             continue
 
@@ -181,7 +188,7 @@ def calcular_divergencias():
                 f'{acesso.usuario} · {NOMES_PAINEL[acesso.painel]} · venceu em {vencida:%d/%m/%Y} · pagamento: {pagamento}.',
                 acesso.usuario, acesso.painel, lista.pk, f'{vencida:%Y%m%d}',
             ))
-        achados.extend(_comparar_dados(lista, acesso, painel))
+        achados.extend(_comparar_dados(lista, acesso, painel, vinculo if pelo_vinculo else None))
 
     repetidos = Counter(
         (painel_do_servidor(l.servidor), l.usuario.strip().lower()) for l in listas if l.ativa
@@ -191,21 +198,24 @@ def calcular_divergencias():
             nomes = [_titulo(l) for l in listas if l.ativa and l.usuario.strip().lower() == login and painel_do_servidor(l.servidor) == painel]
             achados.append(Divergencia('repetido', 'repetido', login, ' e '.join(nomes), login, painel or ''))
 
-    sem_acesso = [l for l in listas if l.ativa and not acessos.get(l.usuario.strip().lower())]
     for login, por_painel in acessos.items():
         for painel, acesso in por_painel.items():
             if (painel, login) in usados or acesso.lixeira:
                 continue
+            candidatas = [l for l in sem_acesso if painel_do_servidor(l.servidor) in (painel, None)]
             partes = [NOMES_PAINEL[painel]]
             if acesso.observacao:
-                partes.append(acesso.observacao[:80])
+                partes.append(f'Observação: {acesso.observacao[:80]}')
             if acesso.validade:
                 partes.append(f'válido até {timezone.localtime(acesso.validade):%d/%m/%Y}')
-            sugestao = _sugestao(acesso, sem_acesso)
+            sugestao = _sugestao(acesso, candidatas)
             if sugestao:
                 partes.append(f'Pode ser: {_titulo(sugestao)} (login {sugestao.usuario})')
             achados.append(Divergencia(
                 'fora_sistema', 'fora_sistema', acesso.usuario, ' · '.join(partes), acesso.usuario, painel,
+                acesso_id=acesso.pk if acesso.painel_id else None,
+                candidatas=[(l.pk, f'{_titulo(l)} ({l.usuario})') for l in candidatas] if acesso.painel_id else [],
+                sugerida_id=sugestao.pk if sugestao else None,
             ))
 
     return achados, sem_painel
@@ -229,9 +239,14 @@ def montar_conferencia():
 
 
 def contar_divergencias():
-    """Contagem do menu. Fica em cache para não recalcular a cada página aberta."""
-    total = cache.get(CHAVE_CACHE_CONTAGEM)
+    """Contagem do menu em cache. A chave muda com leituras, vínculos e ignoradas, para valer em todos os workers."""
+    ultima = LeituraPainel.objects.filter(sucesso=True).values_list('pk', flat=True).first()
+    chave = (
+        f'conferencia_contagem:{ultima}:{VinculoPainel.objects.count()}'
+        f':{DivergenciaIgnorada.objects.count()}'
+    )
+    total = cache.get(chave)
     if total is None:
         total = montar_conferencia()['total']
-        cache.set(CHAVE_CACHE_CONTAGEM, total, 300)
+        cache.set(chave, total, 300)
     return total

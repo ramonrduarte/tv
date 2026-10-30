@@ -13,7 +13,7 @@ from listas.models import AppIPTV, ListaApp, ListaCanais, Servidor
 from . import leitura
 from .bookmarklet import gerar_bookmarklet
 from .leitura import LeituraInvalida, assinar_senha, importar_bit, knewcms_na_hora, salvar_leitura
-from .models import AcessoPainel, ConfiguracaoConferencia, DivergenciaIgnorada, LeituraPainel
+from .models import AcessoPainel, ConfiguracaoConferencia, DivergenciaIgnorada, LeituraPainel, VinculoPainel
 from .regras import calcular_divergencias, contar_divergencias, montar_conferencia
 
 
@@ -198,6 +198,101 @@ class LeituraTests(Base):
             with self.assertRaises(LeituraInvalida):
                 leitura.ler_knewcms()
         chamada.assert_not_called()
+
+
+class VinculoTests(Base):
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(User.objects.create_user('ramon', password='x'))
+
+    def test_login_igual_vincula_sozinho_e_troca_de_login_vira_um_aviso(self):
+        self.lista('antigo', self.warez)
+        salvar_leitura('knewcms', [acesso('antigo', painel_id='77')])
+        self.assertEqual(VinculoPainel.objects.get().painel_id, '77')
+        salvar_leitura('knewcms', [acesso('novo', painel_id='77')])
+        achados = calcular_divergencias()[0]
+        self.assertEqual([a.tipo for a in achados], ['login'])
+        self.assertIn('Login no sistema: antigo · no painel: novo', achados[0].detalhe)
+
+    def test_nao_vincula_sozinho_com_login_repetido_ou_outro_painel(self):
+        outro = Cliente.objects.create(nome='Nina', whatsapp='5551900000003')
+        self.lista('rep', self.warez)
+        self.lista('rep', self.warez, cliente=outro)
+        self.lista('dobit', self.bit)
+        salvar_leitura('knewcms', [acesso('rep', painel_id='1'), acesso('dobit', painel_id='2')])
+        self.assertFalse(VinculoPainel.objects.exists())
+
+    def test_vincular_na_tela_nao_altera_a_lista(self):
+        lista = self.lista('antigo', self.warez, senha='s1')
+        salvar_leitura('knewcms', [acesso('novo', painel_id='77', observacao='Carlos Prado')])
+        item = [a for a in calcular_divergencias()[0] if a.tipo == 'fora_sistema'][0]
+        self.assertEqual(item.sugerida_id, lista.pk)
+        self.assertEqual(item.candidatas[0][0], lista.pk)
+        self.assertContains(self.client.get(reverse('conferencia:painel')), 'Vincular')
+        self.client.post(reverse('conferencia:vincular'), {'acesso_id': item.acesso_id, 'lista_id': lista.pk})
+        lista.refresh_from_db()
+        self.assertEqual(lista.usuario, 'antigo')
+        self.assertEqual([a.tipo for a in calcular_divergencias()[0]], ['login'])
+
+    def test_corrigir_o_login_na_lista_encerra_o_aviso(self):
+        lista = self.lista('antigo', self.warez)
+        salvar_leitura('knewcms', [acesso('antigo', painel_id='77')])
+        salvar_leitura('knewcms', [acesso('novo', painel_id='77')])
+        lista.usuario = 'novo'
+        lista.save()
+        self.assertEqual(calcular_divergencias()[0], [])
+
+    def test_vinculo_recusa_duplicidade(self):
+        a = self.lista('a', self.warez)
+        b = self.lista('b', self.warez)
+        salvar_leitura('knewcms', [acesso('a', painel_id='1'), acesso('x', painel_id='2'), acesso('y', painel_id='3')])
+        x = AcessoPainel.objects.get(usuario='x')
+        self.client.post(reverse('conferencia:vincular'), {'acesso_id': x.pk, 'lista_id': a.pk})
+        self.assertEqual(VinculoPainel.objects.get(lista=a).painel_id, '1')
+        self.client.post(reverse('conferencia:vincular'), {'acesso_id': x.pk, 'lista_id': b.pk})
+        self.client.post(reverse('conferencia:vincular'), {'acesso_id': AcessoPainel.objects.get(usuario='y').pk, 'lista_id': b.pk})
+        self.assertEqual(VinculoPainel.objects.get(lista=b).painel_id, '2')
+
+    def test_desvincular_volta_a_comparar_pelo_login(self):
+        self.lista('antigo', self.warez)
+        salvar_leitura('knewcms', [acesso('antigo', painel_id='77')])
+        salvar_leitura('knewcms', [acesso('novo', painel_id='77')])
+        vinculo = VinculoPainel.objects.get()
+        self.client.post(reverse('conferencia:desvincular', args=[vinculo.pk]))
+        tipos = {a.tipo for a in calcular_divergencias()[0]}
+        self.assertEqual(tipos, {'fora_paineis', 'fora_sistema'})
+
+    def test_acesso_vinculado_que_saiu_avisa(self):
+        self.lista('casa', self.warez)
+        salvar_leitura('knewcms', [acesso('casa', painel_id='1'), acesso('outro', painel_id='2')])
+        salvar_leitura('knewcms', [acesso('outro', painel_id='2')])
+        achado = [a for a in calcular_divergencias()[0] if a.tipo == 'fora_paineis'][0]
+        self.assertIn('o acesso vinculado saiu do painel', achado.detalhe)
+
+    def test_bit_usa_criacao_e_ignora_repetida(self):
+        self.lista('um', self.bit)
+        linha = {'senha': 's1', 'estado': 'Ativa', 'telas': '1', 'validade': '10/12/2026 13:16'}
+        importar_bit(3, [
+            {**linha, 'usuario': 'um', 'criacao': '01/01/2026 10:00'},
+            {**linha, 'usuario': 'dois', 'criacao': '02/01/2026 10:00'},
+            {**linha, 'usuario': 'tres', 'criacao': '02/01/2026 10:00'},
+        ])
+        self.assertEqual(AcessoPainel.objects.get(usuario='um').painel_id, '01/01/2026 10:00')
+        self.assertEqual(AcessoPainel.objects.get(usuario='dois').painel_id, '')
+        self.assertEqual(VinculoPainel.objects.get().painel_id, '01/01/2026 10:00')
+
+    def test_favorito_antigo_sem_criacao_continua_comparando_por_login(self):
+        self.lista('um', self.bit)
+        importar_bit(1, [{'usuario': 'um', 'senha': 's1', 'estado': 'Ativa', 'telas': '1', 'validade': '10/12/2026 13:16'}])
+        self.assertFalse(VinculoPainel.objects.exists())
+        self.assertEqual(calcular_divergencias()[0], [])
+
+    def test_contagem_do_menu_muda_com_novo_vinculo(self):
+        lista = self.lista('antigo', self.warez)
+        salvar_leitura('knewcms', [acesso('novo', painel_id='77')])
+        self.assertEqual(contar_divergencias(), 2)
+        VinculoPainel.objects.create(lista=lista, painel='knewcms', painel_id='77')
+        self.assertEqual(contar_divergencias(), 1)
 
 
 class FrequenciaTests(Base):

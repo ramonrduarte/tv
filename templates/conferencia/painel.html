@@ -86,8 +86,27 @@
         <p class="text-sm font-medium text-slate-800">{{ item.titulo }}</p>
         <p class="text-sm text-slate-500">{{ item.detalhe }}</p>
       </div>
+      {% if item.candidatas %}
+      <form method="post" action="{% url 'conferencia:vincular' %}" class="flex flex-wrap items-center gap-2">
+        {% csrf_token %}
+        <input type="hidden" name="acesso_id" value="{{ item.acesso_id }}">
+        <select name="lista_id" aria-label="Lista para vincular a {{ item.usuario }}" class="max-w-xs px-2 py-1.5 text-sm border border-slate-300 rounded-lg bg-white">
+          <option value="">Escolha a lista</option>
+          {% for valor, nome in item.candidatas %}
+          <option value="{{ valor }}" {% if valor == item.sugerida_id %}selected{% endif %}>{{ nome }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition">Vincular</button>
+      </form>
+      {% endif %}
       {% if item.lista_id %}
       <a href="{% url 'listas:detalhe' item.lista_id %}" class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 transition">Abrir lista</a>
+      {% endif %}
+      {% if item.vinculo_id %}
+      <form method="post" action="{% url 'conferencia:desvincular' item.vinculo_id %}">
+        {% csrf_token %}
+        <button type="submit" class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 transition">Desvincular</button>
+      </form>
       {% endif %}
       <form method="post" action="{% url 'conferencia:ignorar' %}">
         {% csrf_token %}

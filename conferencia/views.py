@@ -3,14 +3,15 @@ import json
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.cache import cache
 from django.http import JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from listas.models import ListaCanais
+
 from .bookmarklet import gerar_bookmarklet
-from .leitura import CHAVE_CACHE_CONTAGEM, LeituraInvalida, importar_bit, ler_knewcms
-from .models import ConfiguracaoConferencia, DivergenciaIgnorada, LeituraPainel
+from .leitura import LeituraInvalida, importar_bit, ler_knewcms
+from .models import AcessoPainel, ConfiguracaoConferencia, DivergenciaIgnorada, LeituraPainel, VinculoPainel
 from .regras import montar_conferencia
 
 
@@ -87,13 +88,40 @@ def importar_bit_view(request):
 
 @login_required
 @require_POST
+def vincular(request):
+    """Só registra o vínculo: não altera login nem senha da lista."""
+    acesso = get_object_or_404(AcessoPainel, pk=request.POST.get('acesso_id') or 0)
+    lista = ListaCanais.objects.filter(pk=request.POST.get('lista_id') or 0).first()
+    if not lista:
+        messages.error(request, 'Escolha a lista para vincular.')
+    elif not acesso.painel_id:
+        messages.error(request, 'Este acesso ainda não tem identificador. Faça uma nova leitura do painel.')
+    elif VinculoPainel.objects.filter(lista=lista).exists():
+        messages.error(request, 'Esta lista já está vinculada a outro acesso.')
+    elif VinculoPainel.objects.filter(painel=acesso.painel, painel_id=acesso.painel_id).exists():
+        messages.error(request, 'Este acesso já está vinculado a outra lista.')
+    else:
+        VinculoPainel.objects.create(lista=lista, painel=acesso.painel, painel_id=acesso.painel_id, manual=True)
+        messages.success(request, f'{acesso.usuario} vinculado a {lista.cliente.nome} · {lista.nome}.')
+    return redirect('conferencia:painel')
+
+
+@login_required
+@require_POST
+def desvincular(request, pk):
+    VinculoPainel.objects.filter(pk=pk).delete()
+    messages.success(request, 'Vínculo removido.')
+    return redirect('conferencia:painel')
+
+
+@login_required
+@require_POST
 def ignorar(request):
     chave = request.POST.get('chave', '').strip()
     if chave:
         DivergenciaIgnorada.objects.get_or_create(
             chave=chave, defaults={'descricao': request.POST.get('descricao', '')[:300]},
         )
-        cache.delete(CHAVE_CACHE_CONTAGEM)
     return redirect('conferencia:painel')
 
 
@@ -101,5 +129,4 @@ def ignorar(request):
 @require_POST
 def restaurar(request, pk):
     DivergenciaIgnorada.objects.filter(pk=pk).delete()
-    cache.delete(CHAVE_CACHE_CONTAGEM)
     return redirect('conferencia:painel')

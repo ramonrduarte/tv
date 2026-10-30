@@ -33,6 +33,28 @@ class AcessoPainel(models.Model):
         return f'{self.usuario} ({self.get_painel_display()})'
 
 
+class VinculoPainel(models.Model):
+    """Liga a lista ao acesso por um identificador que não muda quando o usuário é trocado."""
+    lista = models.OneToOneField(
+        'listas.ListaCanais', on_delete=models.CASCADE,
+        related_name='vinculo_painel', verbose_name='Lista',
+    )
+    painel = models.CharField('Painel', max_length=20, choices=AcessoPainel.PAINEL_CHOICES)
+    painel_id = models.CharField('ID no painel', max_length=50)
+    manual = models.BooleanField('Feito à mão', default=False)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Vínculo com o painel'
+        verbose_name_plural = 'Vínculos com os painéis'
+        constraints = [
+            models.UniqueConstraint(fields=['painel', 'painel_id'], name='conferencia_vinculo_unico'),
+        ]
+
+    def __str__(self):
+        return f'{self.lista} → {self.get_painel_display()} {self.painel_id}'
+
+
 class LeituraPainel(models.Model):
     painel = models.CharField('Painel', max_length=20, choices=AcessoPainel.PAINEL_CHOICES)
     lida_em = models.DateTimeField('Lida em', auto_now_add=True)

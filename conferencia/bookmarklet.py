@@ -18,7 +18,7 @@ if(!c||c[0]<c[1]){alert('Não foi possível carregar todas as listas do BIT. Nad
 var t=document.querySelector('table');
 var cab=Array.from(t.querySelectorAll('th')).map(function(h){return h.textContent.trim().toLowerCase();});
 var col=function(n){return cab.indexOf(n);};
-var ci={estado:col('estado'),usuario:col('usuário'),senha:col('senha'),telas:col('telas'),validade:col('validade')};
+var ci={estado:col('estado'),usuario:col('usuário'),senha:col('senha'),telas:col('telas'),validade:col('validade'),criacao:col('criação')};
 if(Object.values(ci).some(function(x){return x<0;})){alert('A tela do BIT mudou e não foi possível ler as colunas. Nada foi enviado.');return;}
 var linhas=Array.from(t.querySelectorAll('tbody tr')).map(function(r){var o={};Object.keys(ci).forEach(function(k){o[k]=r.children[ci[k]].textContent.trim();});return o;});
 var ok=false;

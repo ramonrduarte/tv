@@ -6,15 +6,17 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta
 
+from collections import Counter, defaultdict
+
 from django.conf import settings
-from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 
-from .models import AcessoPainel, ConfiguracaoConferencia, LeituraPainel
+from listas.models import ListaCanais
+
+from .models import AcessoPainel, ConfiguracaoConferencia, LeituraPainel, VinculoPainel
 
 KNEWCMS_API = 'https://mcapi.knewcms.com:2087'
-CHAVE_CACHE_CONTAGEM = 'conferencia_contagem'
 # Uma leitura muito menor que a anterior costuma ser filtro ou falha, não clientes que sumiram.
 PROPORCAO_MINIMA = 0.5
 
@@ -28,6 +30,36 @@ def assinar_senha(senha):
     if not senha:
         return ''
     return hmac.new(settings.SECRET_KEY.encode(), senha.encode(), hashlib.sha256).hexdigest()
+
+
+def painel_do_servidor(servidor):
+    """Liga o nome do servidor ao painel. Servidor desconhecido não é conferido por ausência."""
+    if not servidor:
+        return None
+    nome = servidor.nome.strip().lower()
+    if nome.startswith('bit'):
+        return 'bit'
+    if nome.startswith(('warez', 'knew', 'ww')):
+        return 'knewcms'
+    return ''
+
+
+def vincular_automaticamente(painel):
+    """Vincula só quando o login é igual e aponta para uma única lista possível."""
+    ja_vinculadas = set(VinculoPainel.objects.values_list('lista_id', flat=True))
+    ids_usados = set(VinculoPainel.objects.filter(painel=painel).values_list('painel_id', flat=True))
+    por_login = defaultdict(list)
+    for lista in ListaCanais.objects.select_related('servidor'):
+        if painel_do_servidor(lista.servidor) in (painel, None):
+            por_login[lista.usuario.strip().lower()].append(lista)
+
+    for acesso in AcessoPainel.objects.filter(painel=painel).exclude(painel_id=''):
+        candidatas = por_login.get(acesso.usuario.strip().lower(), [])
+        if len(candidatas) != 1 or acesso.painel_id in ids_usados or candidatas[0].pk in ja_vinculadas:
+            continue
+        VinculoPainel.objects.create(lista=candidatas[0], painel=painel, painel_id=acesso.painel_id)
+        ids_usados.add(acesso.painel_id)
+        ja_vinculadas.add(candidatas[0].pk)
 
 
 def registrar_falha(painel, erro):
@@ -53,8 +85,8 @@ def salvar_leitura(painel, acessos):
             usuarios.append(usuario)
             AcessoPainel.objects.update_or_create(painel=painel, usuario=usuario, defaults=dados)
         AcessoPainel.objects.filter(painel=painel).exclude(usuario__in=usuarios).delete()
+        vincular_automaticamente(painel)
         leitura = LeituraPainel.objects.create(painel=painel, total=len(acessos))
-    cache.delete(CHAVE_CACHE_CONTAGEM)
     return leitura
 
 
@@ -171,6 +203,8 @@ def _acesso_bit(linha):
     telas = str(linha.get('telas') or '').strip()
     return {
         'usuario': usuario,
+        # O BIT não mostra ID; a data de criação não muda quando o usuário é trocado.
+        'painel_id': str(linha.get('criacao') or '').strip(),
         'senha_hash': assinar_senha(str(linha.get('senha') or '').strip()),
         'ativo': str(linha.get('estado') or '').strip().lower().startswith('ativ'),
         'validade': _data_bit(linha.get('validade')),
@@ -184,7 +218,13 @@ def importar_bit(total, linhas):
             raise LeituraInvalida('A leitura do BIT veio em um formato inesperado.')
         if total != len(linhas):
             raise LeituraInvalida(f'O BIT informou {total} acessos, mas chegaram {len(linhas)}.')
-        return salvar_leitura('bit', [_acesso_bit(linha) for linha in linhas])
+        acessos = [_acesso_bit(linha) for linha in linhas]
+        # Criados no mesmo minuto não dá para distinguir: ficam só com o login.
+        repetidos = Counter(a['painel_id'] for a in acessos)
+        for acesso in acessos:
+            if repetidos[acesso['painel_id']] > 1:
+                acesso['painel_id'] = ''
+        return salvar_leitura('bit', acessos)
     except LeituraInvalida as e:
         registrar_falha('bit', e)
         raise
