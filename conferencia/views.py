@@ -66,7 +66,10 @@ def salvar_frequencia(request):
 
 @login_required
 def receber_bit(request):
-    return render(request, 'conferencia/receber_bit.html')
+    resposta = render(request, 'conferencia/receber_bit.html')
+    # O padrão do Django (same-origin) separa esta aba da aba do BIT e impede a entrega da leitura.
+    resposta['Cross-Origin-Opener-Policy'] = 'unsafe-none'
+    return resposta
 
 
 @login_required

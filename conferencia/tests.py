@@ -259,6 +259,13 @@ class TelasTests(Base):
         self.assertContains(resposta, 'Conferir BIT')
         self.assertEqual(resposta.context['conferencia_total'], 1)
 
+    def test_so_a_aba_que_recebe_o_bit_libera_a_comunicacao_entre_abas(self):
+        self.client.force_login(self.user)
+        resposta = self.client.get(reverse('conferencia:receber_bit'))
+        self.assertEqual(resposta['Cross-Origin-Opener-Policy'], 'unsafe-none')
+        resposta = self.client.get(reverse('conferencia:painel'))
+        self.assertEqual(resposta['Cross-Origin-Opener-Policy'], 'same-origin')
+
     def test_importa_bit_por_post(self):
         self.client.force_login(self.user)
         corpo = {'total': 1, 'linhas': [{'usuario': 'a', 'senha': 'x', 'estado': 'Ativa', 'telas': '1', 'validade': '10/12/2026 13:16'}]}
