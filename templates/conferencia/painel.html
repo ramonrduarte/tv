@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% block title %}Conferência — IPTV Manager{% endblock %}
+{% block page_title %}Conferência dos painéis{% endblock %}
+
+{% block content %}
+<p class="text-sm text-slate-500 mb-4">Só consulta: nada é alterado nos painéis nem nos cadastros.</p>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+  <section class="bg-white rounded-xl border border-slate-200 p-4">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 class="font-semibold text-slate-800">knewcms</h2>
+        {% if knewcms.sucesso %}
+        <p class="text-sm text-slate-500">{{ knewcms.sucesso.total }} acessos · lido em {{ knewcms.sucesso.lida_em|date:"d/m/Y H:i" }}</p>
+        {% else %}
+        <p class="text-sm text-slate-500">Ainda não lido.</p>
+        {% endif %}
+      </div>
+      <form method="post" action="{% url 'conferencia:atualizar_knewcms' %}">
+        {% csrf_token %}
+        <button type="submit" {% if not tem_token %}disabled{% endif %}
+                class="px-3 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+          Atualizar agora
+        </button>
+      </form>
+    </div>
+    {% if not tem_token %}
+    <p class="text-sm text-yellow-700 mt-3">Falta configurar a variável WWPANEL_API_TOKEN no servidor.</p>
+    {% elif knewcms.ultima and not knewcms.ultima.sucesso %}
+    <p class="text-sm text-red-600 mt-3">Última tentativa falhou em {{ knewcms.ultima.lida_em|date:"d/m/Y H:i" }}: {{ knewcms.ultima.erro }}</p>
+    {% else %}
+    <p class="text-sm text-slate-500 mt-3">Atualiza sozinho a cada hora.</p>
+    {% endif %}
+  </section>
+
+  <section class="bg-white rounded-xl border border-slate-200 p-4">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 class="font-semibold text-slate-800">BIT</h2>
+        {% if bit.sucesso %}
+        <p class="text-sm text-slate-500">{{ bit.sucesso.total }} acessos · lido em {{ bit.sucesso.lida_em|date:"d/m/Y H:i" }}</p>
+        {% else %}
+        <p class="text-sm text-slate-500">Ainda não lido.</p>
+        {% endif %}
+      </div>
+      <a href="{{ bookmarklet|urlencode:':/?=&' }}" onclick="return false"
+         class="px-3 py-2 text-sm font-medium rounded-lg border border-slate-300 text-slate-700 cursor-grab"
+         title="Arraste para a barra de favoritos">Conferir BIT</a>
+    </div>
+    {% if bit.ultima and not bit.ultima.sucesso %}
+    <p class="text-sm text-red-600 mt-3">Última tentativa falhou em {{ bit.ultima.lida_em|date:"d/m/Y H:i" }}: {{ bit.ultima.erro }}</p>
+    {% endif %}
+    <p class="text-sm text-slate-500 mt-3">Arraste "Conferir BIT" para a barra de favoritos uma vez. Para ler, abra a tela de listas do BIT e clique no favorito.</p>
+  </section>
+</div>
+
+{% if not total %}
+<div class="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm mb-4">
+  Nenhuma divergência nos painéis lidos.
+</div>
+{% endif %}
+
+{% for grupo in grupos %}
+{% if grupo.itens %}
+<section class="bg-white rounded-xl border border-slate-200 mb-4 overflow-hidden">
+  <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-200">
+    <div>
+      <h2 class="font-semibold text-slate-800">{{ grupo.titulo }}</h2>
+      <p class="text-sm text-slate-500">{{ grupo.descricao }}</p>
+    </div>
+    <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold
+      {% if grupo.cor == 'red' %}bg-red-100 text-red-700{% elif grupo.cor == 'yellow' %}bg-yellow-100 text-yellow-700{% else %}bg-blue-100 text-blue-700{% endif %}">{{ grupo.itens|length }}</span>
+  </div>
+  <div class="divide-y divide-slate-100">
+    {% for item in grupo.itens %}
+    <div class="flex flex-wrap items-center gap-3 px-4 py-3">
+      <div class="flex-1 min-w-[220px]">
+        <p class="text-sm font-medium text-slate-800">{{ item.titulo }}</p>
+        <p class="text-sm text-slate-500">{{ item.detalhe }}</p>
+      </div>
+      {% if item.lista_id %}
+      <a href="{% url 'listas:detalhe' item.lista_id %}" class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 transition">Abrir lista</a>
+      {% endif %}
+      <form method="post" action="{% url 'conferencia:ignorar' %}">
+        {% csrf_token %}
+        <input type="hidden" name="chave" value="{{ item.chave }}">
+        <input type="hidden" name="descricao" value="{{ item.descricao }}">
+        <button type="submit" class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 transition">Ignorar</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endfor %}
+
+{% if sem_painel %}
+<section class="bg-white rounded-xl border border-slate-200 mb-4 p-4">
+  <h2 class="font-semibold text-slate-800">Não conferidas</h2>
+  <p class="text-sm text-slate-500">{{ sem_painel|length }} lista(s) ativa(s) em servidores sem painel ligado à conferência.</p>
+</section>
+{% endif %}
+
+{% if ignoradas %}
+<details class="bg-white rounded-xl border border-slate-200 mb-4">
+  <summary class="px-4 py-3 text-sm font-medium text-slate-700 cursor-pointer">Ignoradas ({{ ignoradas|length }})</summary>
+  <div class="divide-y divide-slate-100 border-t border-slate-200">
+    {% for item in ignoradas %}
+    <div class="flex flex-wrap items-center gap-3 px-4 py-3">
+      <p class="flex-1 min-w-[220px] text-sm text-slate-500">{{ item.descricao }}</p>
+      <form method="post" action="{% url 'conferencia:restaurar' item.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 transition">Voltar a avisar</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+</details>
+{% endif %}
+{% endblock %}

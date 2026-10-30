@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'financeiro',
     'api',
     'usuarios',
+    'conferencia',
 ]
 
 MIDDLEWARE = [
@@ -59,6 +60,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'conferencia.context_processors.divergencias',
             ],
         },
     },
@@ -122,6 +124,9 @@ REST_FRAMEWORK = {
 
 # Token fixo para o agente WhatsApp (alternativa simples ao token por usuário)
 API_TOKEN_WHATSAPP = env('API_TOKEN_WHATSAPP', default='')
+
+# Chave da API do knewcms, usada só para consultar os acessos
+WWPANEL_API_TOKEN = env('WWPANEL_API_TOKEN', default='')
 
 # Segurança extra em produção (quando atrás de proxy reverso como Nginx/Traefik)
 if not DEBUG:

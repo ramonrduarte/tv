@@ -27,6 +27,7 @@ urlpatterns = [
     path('listas/', include('listas.urls', namespace='listas')),
     path('mensalidades/', include('financeiro.urls', namespace='financeiro')),
     path('usuarios/', include('usuarios.urls', namespace='usuarios')),
+    path('conferencia/', include('conferencia.urls', namespace='conferencia')),
 
     # API
     path('api/v1/', include('api.urls', namespace='api')),

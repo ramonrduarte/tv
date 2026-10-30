@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Leitura do BIT — IPTV Manager{% endblock %}
+{% block page_title %}Leitura do BIT{% endblock %}
+
+{% block content %}
+<section class="bg-white rounded-xl border border-slate-200 p-5 max-w-xl">
+  <p id="situacao" class="text-sm text-slate-700" role="status">Aguardando a leitura da tela do BIT. Isso pode levar alguns segundos.</p>
+  <a href="{% url 'conferencia:painel' %}" id="ver" class="hidden mt-4 px-3 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition">Ver conferência</a>
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  var ORIGEM_BIT = 'https://bitpanel.vip';
+  var situacao = document.getElementById('situacao');
+  var ver = document.getElementById('ver');
+  var recebido = false;
+
+  function terminar(texto) {
+    situacao.textContent = texto;
+    ver.classList.remove('hidden');
+    ver.classList.add('inline-block');
+  }
+
+  window.addEventListener('message', function (evento) {
+    if (evento.origin !== ORIGEM_BIT || !evento.data || evento.data.tipo !== 'leitura_bit' || recebido) return;
+    recebido = true;
+    evento.source.postMessage('recebido', ORIGEM_BIT);
+    situacao.textContent = 'Comparando ' + evento.data.total + ' acessos...';
+    fetch("{% url 'conferencia:importar_bit' %}", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+      body: JSON.stringify({ total: evento.data.total, linhas: evento.data.linhas })
+    }).then(function (resposta) {
+      return resposta.json().then(function (dados) {
+        terminar(resposta.ok ? 'BIT lido: ' + dados.total + ' acessos.' : 'A leitura não foi salva: ' + dados.erro);
+      });
+    }).catch(function () {
+      terminar('A leitura não foi salva: não foi possível falar com o sistema.');
+    });
+  });
+})();
+</script>
+{% endblock %}

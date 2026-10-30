@@ -1,0 +1,63 @@
+from django.db import models
+
+
+class AcessoPainel(models.Model):
+    """Foto de um acesso como ele estava no painel na última leitura. A senha não é guardada."""
+    PAINEL_CHOICES = [
+        ('bit', 'BIT'),
+        ('knewcms', 'knewcms'),
+    ]
+
+    painel = models.CharField('Painel', max_length=20, choices=PAINEL_CHOICES)
+    usuario = models.CharField('Usuário', max_length=200)
+    painel_id = models.CharField('ID no painel', max_length=50, blank=True)
+    senha_hash = models.CharField('Assinatura da senha', max_length=64, blank=True)
+    ativo = models.BooleanField('Ativo', default=True)
+    lixeira = models.BooleanField('Na lixeira', default=False)
+    teste = models.BooleanField('Em teste', default=False)
+    validade = models.DateTimeField('Validade', null=True, blank=True)
+    telas = models.PositiveSmallIntegerField('Telas', null=True, blank=True)
+    whatsapp = models.CharField('WhatsApp', max_length=40, blank=True)
+    observacao = models.TextField('Observação', blank=True)
+    lido_em = models.DateTimeField('Lido em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'Acesso no painel'
+        verbose_name_plural = 'Acessos nos painéis'
+        ordering = ['painel', 'usuario']
+        constraints = [
+            models.UniqueConstraint(fields=['painel', 'usuario'], name='conferencia_acesso_unico'),
+        ]
+
+    def __str__(self):
+        return f'{self.usuario} ({self.get_painel_display()})'
+
+
+class LeituraPainel(models.Model):
+    painel = models.CharField('Painel', max_length=20, choices=AcessoPainel.PAINEL_CHOICES)
+    lida_em = models.DateTimeField('Lida em', auto_now_add=True)
+    sucesso = models.BooleanField('Sucesso', default=True)
+    total = models.PositiveIntegerField('Acessos lidos', default=0)
+    erro = models.CharField('Erro', max_length=300, blank=True)
+
+    class Meta:
+        verbose_name = 'Leitura de painel'
+        verbose_name_plural = 'Leituras de painéis'
+        ordering = ['-lida_em']
+
+    def __str__(self):
+        return f'{self.get_painel_display()} em {self.lida_em:%d/%m/%Y %H:%M}'
+
+
+class DivergenciaIgnorada(models.Model):
+    chave = models.CharField('Chave', max_length=300, unique=True)
+    descricao = models.CharField('Descrição', max_length=300, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Divergência ignorada'
+        verbose_name_plural = 'Divergências ignoradas'
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return self.descricao or self.chave
