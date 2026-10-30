@@ -65,7 +65,7 @@ class LeituraPainel(models.Model):
     class Meta:
         verbose_name = 'Leitura de painel'
         verbose_name_plural = 'Leituras de painéis'
-        ordering = ['-lida_em']
+        ordering = ['-lida_em', '-pk']
 
     def __str__(self):
         return f'{self.get_painel_display()} em {self.lida_em:%d/%m/%Y %H:%M}'
