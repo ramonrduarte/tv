@@ -1,0 +1,27 @@
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // As telas usam slate e blue: trocar a paleta aqui muda o visual de todas de uma vez.
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
+            mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+          },
+          colors: {
+            slate: {
+              50: '#f8faf9', 100: '#f3f5f4', 200: '#d5dcd9', 300: '#bcc7c3', 400: '#7c8b86',
+              500: '#55635f', 600: '#46544f', 700: '#333f3b', 800: '#15201d', 900: '#14211e',
+            },
+            blue: {
+              50: '#e8f6f3', 100: '#d9efea', 200: '#b3ded5', 300: '#7fc9bb', 400: '#3fb5a3',
+              500: '#139a88', 600: '#0b6b5f', 700: '#085a50', 800: '#06463e', 900: '#053730',
+            },
+          },
+        },
+      },
+    }
+  </script>
