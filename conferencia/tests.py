@@ -92,6 +92,11 @@ class RegrasTests(Base):
         self.assertIn(('telas', 'casa'), tipos)
         self.assertIn(('bloqueada', 'casa'), tipos)
 
+    def test_telas_do_knewcms_sao_ignoradas(self):
+        self.lista('casa', self.warez, num_telas=2)
+        salvar_leitura('knewcms', [acesso('casa', telas=1)])
+        self.assertNotIn(('telas', 'casa'), self.tipos())
+
     def test_senha_diferente_lista_os_apps_e_nunca_mostra_a_senha(self):
         lista = self.lista('casa', self.bit, senha='senha-do-sistema')
         ListaApp.objects.create(lista=lista, app=AppIPTV.objects.create(nome='Smarters'))

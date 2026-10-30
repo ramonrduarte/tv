@@ -89,7 +89,8 @@ def _comparar_dados(lista, acesso, painel, vinculo):
         apps = _apps(lista)
         complemento = f' Se trocar, revise também: {apps}.' if apps else ''
         achar('senha', f'A senha do painel é diferente da salva.{complemento}', acesso.senha_hash[:12])
-    if acesso.telas and acesso.telas != lista.num_telas:
+    # O max_connections do knewcms não representa as telas contratadas.
+    if acesso.painel != 'knewcms' and acesso.telas and acesso.telas != lista.num_telas:
         achar('telas', f'{acesso.telas} tela(s) no painel, {lista.num_telas} no sistema.', str(acesso.telas))
     if acesso.painel == 'knewcms' and acesso.teste != lista.em_teste:
         achar('teste', 'Em teste no painel, normal no sistema.' if acesso.teste else 'Normal no painel, em teste no sistema.')
