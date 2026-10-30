@@ -7,7 +7,7 @@ python manage.py migrate --noinput
 echo "Coletando arquivos estáticos..."
 python manage.py collectstatic --noinput
 
-echo "Agendando conferência do knewcms a cada hora..."
+echo "Agendando conferência do knewcms (a frequência fica na tela de Conferência)..."
 (
   while true; do
     sleep 60

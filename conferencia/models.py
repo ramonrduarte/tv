@@ -49,6 +49,30 @@ class LeituraPainel(models.Model):
         return f'{self.get_painel_display()} em {self.lida_em:%d/%m/%Y %H:%M}'
 
 
+class ConfiguracaoConferencia(models.Model):
+    INTERVALO_CHOICES = [
+        (0, 'Só manual'),
+        (24, '1 vez ao dia'),
+        (12, '2 vezes ao dia'),
+        (6, '4 vezes ao dia'),
+    ]
+
+    intervalo_horas = models.PositiveSmallIntegerField(
+        'Leitura automática do knewcms', choices=INTERVALO_CHOICES, default=12,
+    )
+
+    class Meta:
+        verbose_name = 'Configuração da conferência'
+        verbose_name_plural = 'Configuração da conferência'
+
+    def __str__(self):
+        return self.get_intervalo_horas_display()
+
+    @classmethod
+    def atual(cls):
+        return cls.objects.get_or_create(pk=1)[0]
+
+
 class DivergenciaIgnorada(models.Model):
     chave = models.CharField('Chave', max_length=300, unique=True)
     descricao = models.CharField('Descrição', max_length=300, blank=True)

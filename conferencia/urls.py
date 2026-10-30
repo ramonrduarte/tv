@@ -6,6 +6,7 @@ app_name = 'conferencia'
 urlpatterns = [
     path('', views.painel, name='painel'),
     path('knewcms/atualizar/', views.atualizar_knewcms, name='atualizar_knewcms'),
+    path('knewcms/frequencia/', views.salvar_frequencia, name='salvar_frequencia'),
     path('bit/receber/', views.receber_bit, name='receber_bit'),
     path('bit/importar/', views.importar_bit_view, name='importar_bit'),
     path('ignorar/', views.ignorar, name='ignorar'),

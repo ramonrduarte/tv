@@ -10,7 +10,7 @@ from django.views.decorators.http import require_POST
 
 from .bookmarklet import gerar_bookmarklet
 from .leitura import CHAVE_CACHE_CONTAGEM, LeituraInvalida, importar_bit, ler_knewcms
-from .models import DivergenciaIgnorada, LeituraPainel
+from .models import ConfiguracaoConferencia, DivergenciaIgnorada, LeituraPainel
 from .regras import montar_conferencia
 
 
@@ -29,6 +29,8 @@ def painel(request):
         'knewcms': _ultima_leitura('knewcms'),
         'bit': _ultima_leitura('bit'),
         'tem_token': bool(settings.WWPANEL_API_TOKEN),
+        'configuracao': ConfiguracaoConferencia.atual(),
+        'intervalos': ConfiguracaoConferencia.INTERVALO_CHOICES,
         'bookmarklet': gerar_bookmarklet(f'{request.scheme}://{request.get_host()}'),
     })
     return render(request, 'conferencia/painel.html', contexto)
@@ -42,6 +44,23 @@ def atualizar_knewcms(request):
         messages.success(request, f'knewcms lido: {leitura.total} acessos.')
     except LeituraInvalida as e:
         messages.error(request, str(e))
+    return redirect('conferencia:painel')
+
+
+@login_required
+@require_POST
+def salvar_frequencia(request):
+    try:
+        horas = int(request.POST.get('intervalo_horas', ''))
+    except ValueError:
+        horas = None
+    if horas in dict(ConfiguracaoConferencia.INTERVALO_CHOICES):
+        configuracao = ConfiguracaoConferencia.atual()
+        configuracao.intervalo_horas = horas
+        configuracao.save()
+        messages.success(request, f'Leitura do knewcms: {configuracao.get_intervalo_horas_display().lower()}.')
+    else:
+        messages.error(request, 'Frequência inválida.')
     return redirect('conferencia:painel')
 
 

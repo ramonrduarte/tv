@@ -4,14 +4,14 @@ import json
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 
-from .models import AcessoPainel, LeituraPainel
+from .models import AcessoPainel, ConfiguracaoConferencia, LeituraPainel
 
 KNEWCMS_API = 'https://mcapi.knewcms.com:2087'
 CHAVE_CACHE_CONTAGEM = 'conferencia_contagem'
@@ -130,6 +130,17 @@ def buscar_knewcms():
                     break
                 pagina += 1
     return list(acessos.values())
+
+
+def knewcms_na_hora():
+    """A verificação roda de hora em hora; a folga evita perder o horário por poucos minutos."""
+    horas = ConfiguracaoConferencia.atual().intervalo_horas
+    if not horas:
+        return False
+    ultima = LeituraPainel.objects.filter(painel='knewcms', sucesso=True).first()
+    if not ultima:
+        return True
+    return timezone.now() - ultima.lida_em >= timedelta(hours=horas) - timedelta(minutes=10)
 
 
 def ler_knewcms():

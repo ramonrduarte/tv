@@ -12,8 +12,8 @@ from listas.models import AppIPTV, ListaApp, ListaCanais, Servidor
 
 from . import leitura
 from .bookmarklet import gerar_bookmarklet
-from .leitura import LeituraInvalida, assinar_senha, importar_bit, salvar_leitura
-from .models import AcessoPainel, DivergenciaIgnorada, LeituraPainel
+from .leitura import LeituraInvalida, assinar_senha, importar_bit, knewcms_na_hora, salvar_leitura
+from .models import AcessoPainel, ConfiguracaoConferencia, DivergenciaIgnorada, LeituraPainel
 from .regras import calcular_divergencias, contar_divergencias, montar_conferencia
 
 
@@ -198,6 +198,46 @@ class LeituraTests(Base):
             with self.assertRaises(LeituraInvalida):
                 leitura.ler_knewcms()
         chamada.assert_not_called()
+
+
+class FrequenciaTests(Base):
+    def registrar_leitura(self, horas_atras):
+        registro = LeituraPainel.objects.create(painel='knewcms', total=1)
+        LeituraPainel.objects.filter(pk=registro.pk).update(lida_em=timezone.now() - timedelta(hours=horas_atras))
+
+    def test_padrao_duas_vezes_ao_dia(self):
+        self.assertEqual(ConfiguracaoConferencia.atual().intervalo_horas, 12)
+
+    def test_sem_leitura_anterior_le(self):
+        self.assertTrue(knewcms_na_hora())
+
+    def test_respeita_o_intervalo(self):
+        self.registrar_leitura(5)
+        self.assertFalse(knewcms_na_hora())
+        LeituraPainel.objects.all().delete()
+        self.registrar_leitura(12)
+        self.assertTrue(knewcms_na_hora())
+
+    def test_folga_nao_pula_o_horario(self):
+        self.registrar_leitura(11.9)
+        self.assertTrue(knewcms_na_hora())
+
+    def test_so_manual_nunca_le_sozinho(self):
+        ConfiguracaoConferencia.objects.update_or_create(pk=1, defaults={'intervalo_horas': 0})
+        self.assertFalse(knewcms_na_hora())
+
+    def test_falha_nao_conta_como_leitura(self):
+        self.registrar_leitura(13)
+        LeituraPainel.objects.create(painel='knewcms', sucesso=False, erro='x')
+        self.assertTrue(knewcms_na_hora())
+
+    def test_tela_salva_e_recusa_valor_invalido(self):
+        self.client.force_login(User.objects.create_user('ramon', password='x'))
+        self.client.post(reverse('conferencia:salvar_frequencia'), {'intervalo_horas': '24'})
+        self.assertEqual(ConfiguracaoConferencia.atual().intervalo_horas, 24)
+        self.client.post(reverse('conferencia:salvar_frequencia'), {'intervalo_horas': '1'})
+        self.assertEqual(ConfiguracaoConferencia.atual().intervalo_horas, 24)
+        self.assertContains(self.client.get(reverse('conferencia:painel')), '1 vez ao dia')
 
 
 class TelasTests(Base):
