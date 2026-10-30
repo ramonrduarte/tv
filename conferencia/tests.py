@@ -269,17 +269,28 @@ class VinculoTests(Base):
         achado = [a for a in calcular_divergencias()[0] if a.tipo == 'fora_paineis'][0]
         self.assertIn('o acesso vinculado saiu do painel', achado.detalhe)
 
-    def test_bit_usa_criacao_e_ignora_repetida(self):
+    def test_bit_usa_o_id_e_le_os_campos_do_painel(self):
         self.lista('um', self.bit)
-        linha = {'senha': 's1', 'estado': 'Ativa', 'telas': '1', 'validade': '10/12/2026 13:16'}
-        importar_bit(3, [
-            {**linha, 'usuario': 'um', 'criacao': '01/01/2026 10:00'},
-            {**linha, 'usuario': 'dois', 'criacao': '02/01/2026 10:00'},
-            {**linha, 'usuario': 'tres', 'criacao': '02/01/2026 10:00'},
+        importar_bit(2, [
+            {'id': 'uuid-1', 'usuario': 'um', 'senha': 's1', 'estado': 'ACTIVE', 'telas': 2, 'validade': '2026-12-10T16:16:00.000Z', 'whatsapp': '5551900000001', 'observacao': 'Sala'},
+            {'id': 'uuid-2', 'usuario': 'dois', 'senha': 's2', 'estado': 'DISABLED', 'telas': 1, 'validade': '2026-12-10T16:16:00.000Z', 'whatsapp': None, 'observacao': None},
         ])
-        self.assertEqual(AcessoPainel.objects.get(usuario='um').painel_id, '01/01/2026 10:00')
-        self.assertEqual(AcessoPainel.objects.get(usuario='dois').painel_id, '')
-        self.assertEqual(VinculoPainel.objects.get().painel_id, '01/01/2026 10:00')
+        um = AcessoPainel.objects.get(usuario='um')
+        self.assertEqual(um.painel_id, 'uuid-1')
+        self.assertTrue(um.ativo)
+        self.assertEqual(um.telas, 2)
+        self.assertEqual(um.observacao, 'Sala')
+        self.assertEqual(timezone.localtime(um.validade).strftime('%d/%m/%Y %H:%M'), '10/12/2026 13:16')
+        self.assertFalse(AcessoPainel.objects.get(usuario='dois').ativo)
+        self.assertEqual(VinculoPainel.objects.get().painel_id, 'uuid-1')
+
+    def test_troca_de_usuario_no_bit_mantem_o_vinculo(self):
+        self.lista('antigo', self.bit)
+        linha = {'id': 'uuid-1', 'senha': 's1', 'estado': 'ACTIVE', 'telas': 1, 'validade': '2027-12-10T16:16:00.000Z'}
+        importar_bit(1, [{**linha, 'usuario': 'antigo'}])
+        importar_bit(1, [{**linha, 'usuario': 'novo'}])
+        achados = calcular_divergencias()[0]
+        self.assertEqual([a.tipo for a in achados], ['login'])
 
     def test_favorito_antigo_sem_criacao_continua_comparando_por_login(self):
         self.lista('um', self.bit)

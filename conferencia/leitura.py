@@ -6,7 +6,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta
 
-from collections import Counter, defaultdict
+from collections import defaultdict
 
 from django.conf import settings
 from django.db import transaction
@@ -190,10 +190,12 @@ def ler_knewcms():
 # ---------------------------------------------------------------------------
 
 def _data_bit(valor):
+    valor = str(valor or '').strip()
     try:
-        return timezone.make_aware(datetime.strptime((valor or '').strip(), '%d/%m/%Y %H:%M'))
+        # O favorito antigo envia a data como aparece na tela.
+        return timezone.make_aware(datetime.strptime(valor, '%d/%m/%Y %H:%M'))
     except ValueError:
-        return None
+        return _data_knewcms(valor)
 
 
 def _acesso_bit(linha):
@@ -203,12 +205,13 @@ def _acesso_bit(linha):
     telas = str(linha.get('telas') or '').strip()
     return {
         'usuario': usuario,
-        # O BIT não mostra ID; a data de criação não muda quando o usuário é trocado.
-        'painel_id': str(linha.get('criacao') or '').strip(),
+        'painel_id': str(linha.get('id') or '').strip(),
         'senha_hash': assinar_senha(str(linha.get('senha') or '').strip()),
-        'ativo': str(linha.get('estado') or '').strip().lower().startswith('ativ'),
+        'ativo': str(linha.get('estado') or '').strip().lower() in ('active', 'ativa'),
         'validade': _data_bit(linha.get('validade')),
         'telas': int(telas) if telas.isdigit() else None,
+        'whatsapp': str(linha.get('whatsapp') or '').strip()[:40],
+        'observacao': str(linha.get('observacao') or '').strip(),
     }
 
 
@@ -218,13 +221,7 @@ def importar_bit(total, linhas):
             raise LeituraInvalida('A leitura do BIT veio em um formato inesperado.')
         if total != len(linhas):
             raise LeituraInvalida(f'O BIT informou {total} acessos, mas chegaram {len(linhas)}.')
-        acessos = [_acesso_bit(linha) for linha in linhas]
-        # Criados no mesmo minuto não dá para distinguir: ficam só com o login.
-        repetidos = Counter(a['painel_id'] for a in acessos)
-        for acesso in acessos:
-            if repetidos[acesso['painel_id']] > 1:
-                acesso['painel_id'] = ''
-        return salvar_leitura('bit', acessos)
+        return salvar_leitura('bit', [_acesso_bit(linha) for linha in linhas])
     except LeituraInvalida as e:
         registrar_falha('bit', e)
         raise
