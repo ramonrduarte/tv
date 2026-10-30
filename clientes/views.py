@@ -10,6 +10,7 @@ from django.db.models import Sum, F, ExpressionWrapper, DecimalField, Count, Q
 
 from .models import Cliente, Pagador, TemplateMensagem
 from .forms import ClienteForm, PagadorForm
+from .agrupamento import agrupar_cobrancas, agrupar_por_cliente, agrupar_por_pagador
 from listas.models import ListaCanais, ListaApp
 from financeiro.models import Mensalidade
 
@@ -112,15 +113,17 @@ def dashboard(request):
     alertas_atrasadas = (
         Mensalidade.objects
         .filter(status='atrasado')
-        .select_related('lista__cliente', 'lista__servidor')
-        .order_by('vencimento')[:15]
+        .select_related('lista__cliente', 'lista__pagador')
+        .order_by('vencimento')
     )
     alertas_vencendo = (
         Mensalidade.objects
         .filter(status='pendente', vencimento__gte=hoje, vencimento__lte=sete_dias)
-        .select_related('lista__cliente')
-        .order_by('vencimento')[:15]
+        .select_related('lista__cliente', 'lista__pagador')
+        .order_by('vencimento')
     )
+    cobrar = agrupar_cobrancas(alertas_atrasadas)
+    avisar = agrupar_cobrancas(alertas_vencendo)
 
     listas_em_teste = (
         ListaCanais.objects
@@ -183,8 +186,11 @@ def dashboard(request):
         'receita_mes': receita_mes,
         'custo_mes': custo_mes,
         'lucro_mes': lucro_mes,
-        'alertas_atrasadas': alertas_atrasadas,
-        'alertas_vencendo': alertas_vencendo,
+        'cobrar': cobrar,
+        'avisar': avisar,
+        'total_cobrar': sum(g['total'] for g in cobrar),
+        'total_avisar': sum(g['total'] for g in avisar),
+        'qtd_vencendo': sum(len(g['itens']) for g in avisar),
         'listas_em_teste': listas_em_teste,
         'grafico_labels': grafico_labels,
         'grafico_receita': grafico_receita,
@@ -264,6 +270,14 @@ class ClienteListView(LoginRequiredMixin, ListView):
         'nome': 'nome',
         'whatsapp': 'whatsapp',
     }
+    FILTROS = [
+        ('todos', 'Todos'),
+        ('atrasado', 'Atrasados'),
+        ('pendente', 'Pendentes'),
+        ('em_dia', 'Em dia'),
+        ('teste', 'Em teste'),
+        ('inativa', 'Inativas'),
+    ]
 
     def get_queryset(self):
         qs = Cliente.objects.prefetch_related('listas')
@@ -291,13 +305,29 @@ class ClienteListView(LoginRequiredMixin, ListView):
         if direction == 'desc':
             orm_field = '-' + orm_field
 
-        return qs.prefetch_related('listas').distinct().order_by(orm_field)
+        return (
+            qs.prefetch_related(
+                'listas__servidor', 'listas__pagador', 'listas__apps__app', 'listas__mensalidades',
+            )
+            .distinct().order_by(orm_field)
+        )
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['q'] = self.request.GET.get('q', '')
-        ctx['sort'] = self.request.GET.get('sort', 'nome')
-        ctx['sort_dir'] = self.request.GET.get('dir', 'asc')
+        ver = 'pagador' if self.request.GET.get('ver') == 'pagador' else 'cliente'
+        filtro = self.request.GET.get('filtro', 'todos')
+        if filtro not in dict(self.FILTROS):
+            filtro = 'todos'
+        agrupar = agrupar_por_pagador if ver == 'pagador' else agrupar_por_cliente
+        grupos = agrupar(ctx['clientes'], filtro)
+        ctx.update({
+            'q': self.request.GET.get('q', ''),
+            'ver': ver,
+            'filtro': filtro,
+            'filtros': self.FILTROS,
+            'grupos': grupos,
+            'qtd_listas': sum(len(g['itens']) for g in grupos),
+        })
         return ctx
 
 

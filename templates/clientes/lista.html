@@ -1,113 +1,129 @@
 {% extends 'base.html' %}
-{% load clientes_extras %}
 
 {% block title %}Clientes — IPTV Manager{% endblock %}
 {% block page_title %}Clientes{% endblock %}
 
 {% block header_actions %}
 <a href="{% url 'clientes:novo' %}"
-   class="px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">
+   class="px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition whitespace-nowrap">
   + Novo Cliente
 </a>
 {% endblock %}
 
 {% block content %}
-<!-- Busca -->
-<form method="get" class="mb-4 flex gap-2">
-  <input type="text" name="q" value="{{ q }}" placeholder="Buscar por nome ou WhatsApp..."
-         class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+<form method="get" class="mb-3 flex flex-wrap gap-2">
+  <input type="hidden" name="ver" value="{{ ver }}" />
+  <input type="hidden" name="filtro" value="{{ filtro }}" />
+  <input type="text" name="q" value="{{ q }}" placeholder="Buscar por nome, pagador ou WhatsApp..."
+         aria-label="Buscar clientes"
+         class="flex-1 min-w-[200px] px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
   <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition">
     Buscar
   </button>
   {% if q %}
-  <a href="{% url 'clientes:lista' %}" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-300 transition">
+  <a href="?ver={{ ver }}&filtro={{ filtro }}" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition">
     Limpar
   </a>
   {% endif %}
 </form>
 
-<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-  <table class="w-full text-sm">
-    <thead>
-      <tr class="border-b border-slate-100 bg-slate-50">
-        {% sort_url 'nome' as url_nome %}{% sort_url 'whatsapp' as url_wpp %}
-        <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-          <a href="{{ url_nome }}" class="hover:text-slate-800 flex items-center gap-1">Nome {% sort_icon 'nome' %}</a>
-        </th>
-        <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
-          <a href="{{ url_wpp }}" class="hover:text-slate-800 flex items-center gap-1">WhatsApp {% sort_icon 'whatsapp' %}</a>
-        </th>
-        <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Listas</th>
-        <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-        <th class="text-right px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Ações</th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-slate-50">
-      {% for cliente in clientes %}
-      {% with status=cliente.status_geral %}
-      <tr class="hover:bg-slate-50 transition-colors">
-        <td class="px-5 py-3.5">
-          <a href="{% url 'clientes:detalhe' cliente.pk %}" class="font-medium text-slate-800 hover:text-blue-600">
-            {{ cliente.nome }}
-          </a>
-          {% if not cliente.ativo %}
-          <span class="ml-2 text-xs px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded">Inativo</span>
-          {% endif %}
-        </td>
-        <td class="px-4 py-3.5 text-slate-600">{{ cliente.whatsapp }}</td>
-        <td class="px-4 py-3.5 text-center text-slate-600">{{ cliente.listas.count }}</td>
-        <td class="px-4 py-3.5 text-center">
-          {% if status == 'atrasado' %}
-            <span class="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded-full">Atrasado</span>
-          {% elif status == 'sem_lista' %}
-            <span class="px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-500 rounded-full">Sem lista</span>
-          {% endif %}
-        </td>
-        <td class="px-5 py-3.5 text-right">
-          <div class="flex items-center justify-end gap-2">
-            <a href="{% url 'clientes:detalhe' cliente.pk %}"
-               class="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-medium transition">
-              Ver
-            </a>
-            <a href="{% url 'clientes:editar' cliente.pk %}"
-               class="text-xs px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded font-medium transition">
-              Editar
-            </a>
-            <form method="post" action="{% url 'clientes:alternar_ativo' cliente.pk %}">
-              {% csrf_token %}
-              <input type="hidden" name="next" value="{{ request.get_full_path }}" />
-              {% if cliente.ativo %}
-              <button type="submit"
-                      class="text-xs px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded font-medium transition">
-                Inativar
-              </button>
-              {% else %}
-              <button type="submit"
-                      class="text-xs px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 rounded font-medium transition">
-                Reativar
-              </button>
-              {% endif %}
-            </form>
-            <form method="post" action="{% url 'clientes:excluir' cliente.pk %}"
-                  onsubmit="return confirm('Excluir {{ cliente.nome }}? Todas as listas e mensalidades serão removidas.')">
-              {% csrf_token %}
-              <button type="submit"
-                      class="text-xs px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded font-medium transition">
-                Excluir
-              </button>
-            </form>
-          </div>
-        </td>
-      </tr>
-      {% endwith %}
-      {% empty %}
-      <tr>
-        <td colspan="5" class="px-5 py-10 text-center text-slate-400 text-sm">
-          {% if q %}Nenhum cliente encontrado para "{{ q }}"{% else %}Nenhum cliente cadastrado ainda.{% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="flex flex-wrap items-center gap-2 mb-3">
+  {% for valor, nome in filtros %}
+  <a href="?ver={{ ver }}&filtro={{ valor }}{% if q %}&q={{ q|urlencode }}{% endif %}"
+     class="px-3 py-1.5 text-sm rounded-full border transition
+            {% if filtro == valor %}bg-blue-600 border-blue-600 text-white font-medium{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-50{% endif %}">{{ nome }}</a>
+  {% endfor %}
 </div>
+
+<div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+  <p class="text-sm text-slate-500">
+    {{ qtd_listas }} lista{{ qtd_listas|pluralize:"s" }} · {{ grupos|length }} {% if ver == 'pagador' %}pagador{{ grupos|length|pluralize:"es" }}{% else %}cliente{{ grupos|length|pluralize:"s" }}{% endif %}
+  </p>
+  <div class="flex items-center gap-2 text-sm">
+    <span class="text-slate-500">Agrupar por</span>
+    <a href="?ver=cliente&filtro={{ filtro }}{% if q %}&q={{ q|urlencode }}{% endif %}"
+       class="px-3 py-1.5 rounded-lg border transition {% if ver == 'cliente' %}bg-slate-200 border-slate-300 text-slate-800 font-medium{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-50{% endif %}">Cliente</a>
+    <a href="?ver=pagador&filtro={{ filtro }}{% if q %}&q={{ q|urlencode }}{% endif %}"
+       class="px-3 py-1.5 rounded-lg border transition {% if ver == 'pagador' %}bg-slate-200 border-slate-300 text-slate-800 font-medium{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-50{% endif %}">Quem paga</a>
+  </div>
+</div>
+
+{% for grupo in grupos %}
+<section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+  <div class="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 border-b border-slate-200">
+    <div class="flex-1 min-w-[200px]">
+      <h2 class="text-sm font-semibold text-slate-800">
+        {% if grupo.cliente %}
+        <a href="{% url 'clientes:detalhe' grupo.cliente.pk %}" class="hover:text-blue-600">{{ grupo.nome }}</a>
+        {% if not grupo.cliente.ativo %}<span class="ml-1 text-xs font-normal px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded">Inativo</span>{% endif %}
+        {% else %}
+        {{ grupo.nome }}
+        {% endif %}
+      </h2>
+      <p class="text-xs text-slate-500">
+        {% if grupo.cliente %}{{ grupo.cliente.whatsapp }} · {% else %}{{ grupo.qtd_clientes }} cliente{{ grupo.qtd_clientes|pluralize:"s" }} · {% endif %}{{ grupo.itens|length }} lista{{ grupo.itens|length|pluralize:"s" }}{% if grupo.servidores %} · {{ grupo.servidores }}{% endif %}
+      </p>
+    </div>
+    <span class="px-2 py-0.5 text-xs font-medium rounded-full
+      {% if grupo.cor == 'red' %}bg-red-100 text-red-700{% elif grupo.cor == 'yellow' %}bg-yellow-100 text-yellow-700{% elif grupo.cor == 'green' %}bg-green-100 text-green-700{% elif grupo.cor == 'blue' %}bg-blue-100 text-blue-700{% else %}bg-slate-200 text-slate-600{% endif %}">{{ grupo.status }}</span>
+    {% if grupo.cliente %}
+    <div class="flex items-center gap-2">
+      <a href="{% url 'clientes:editar' grupo.cliente.pk %}" class="text-xs px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded font-medium transition">Editar</a>
+      <form method="post" action="{% url 'clientes:alternar_ativo' grupo.cliente.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}" />
+        {% if grupo.cliente.ativo %}
+        <button type="submit" class="text-xs px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded font-medium transition">Inativar</button>
+        {% else %}
+        <button type="submit" class="text-xs px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 rounded font-medium transition">Reativar</button>
+        {% endif %}
+      </form>
+      <form method="post" action="{% url 'clientes:excluir' grupo.cliente.pk %}"
+            onsubmit="return confirm('Excluir {{ grupo.nome|escapejs }}? Todas as listas e mensalidades serão removidas.')">
+        {% csrf_token %}
+        <button type="submit" class="text-xs px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded font-medium transition">Excluir</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="divide-y divide-slate-100">
+    {% for item in grupo.itens %}
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+      <div class="flex-1 min-w-[220px]">
+        <p class="text-sm font-medium text-slate-800">
+          {% if not grupo.cliente %}<a href="{% url 'clientes:detalhe' item.lista.cliente_id %}" class="hover:text-blue-600">{{ item.lista.cliente.nome }}</a> · {% endif %}<a href="{% url 'listas:detalhe' item.lista.pk %}" class="hover:text-blue-600">{{ item.lista.nome }}</a>
+        </p>
+        <p class="text-xs text-slate-500">
+          <span class="font-mono">{{ item.lista.usuario }}</span>{% if item.lista.servidor %} · {{ item.lista.servidor.nome }}{% endif %} · {{ item.lista.num_telas }} tela{{ item.lista.num_telas|pluralize:"s" }}{% if grupo.cliente %}{% if item.paga_propria %} · paga a própria lista{% else %} · paga por {{ item.responsavel }}{% endif %}{% endif %}
+        </p>
+        {% if item.apps %}
+        <p class="text-xs text-slate-500 mt-0.5">
+          Apps: {% for a in item.apps %}{{ a.app.nome }}{% if a.aparelho %} ({{ a.aparelho }}){% endif %}{% if a.data_vencimento %}, vence {{ a.data_vencimento|date:"d/m/Y" }}{% endif %}{% if not forloop.last %} · {% endif %}{% endfor %}
+        </p>
+        {% endif %}
+      </div>
+      <span class="px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap
+        {% if item.cor == 'red' %}bg-red-100 text-red-700{% elif item.cor == 'yellow' %}bg-yellow-100 text-yellow-700{% elif item.cor == 'green' %}bg-green-100 text-green-700{% elif item.cor == 'blue' %}bg-blue-100 text-blue-700{% else %}bg-slate-200 text-slate-600{% endif %}">{{ item.status }}</span>
+      {% if item.aberta %}
+      <span class="text-xs text-slate-500 whitespace-nowrap">Venc. {{ item.aberta.vencimento|date:"d/m/Y" }}</span>
+      {% endif %}
+      <span class="text-sm font-semibold text-slate-700 whitespace-nowrap">R$ {{ item.lista.valor_mensalidade|floatformat:2 }}</span>
+      {% if item.aberta %}
+      <button type="button" onclick="abrirModalPagar('{% url 'financeiro:pagar' item.aberta.pk %}', '{{ request.get_full_path|escapejs }}')"
+              class="text-xs px-2.5 py-1 bg-green-100 hover:bg-green-200 text-green-700 rounded font-medium transition">Pagar</button>
+      {% endif %}
+    </div>
+    {% empty %}
+    <p class="px-4 py-3 text-sm text-slate-500">Nenhuma lista cadastrada.</p>
+    {% endfor %}
+  </div>
+</section>
+{% empty %}
+<div class="bg-white rounded-xl border border-slate-200 px-5 py-10 text-center text-slate-500 text-sm">
+  {% if q %}Nenhum resultado para "{{ q }}".{% elif filtro != 'todos' %}Nada neste filtro.{% else %}Nenhum cliente cadastrado ainda.{% endif %}
+</div>
+{% endfor %}
+
+{% include 'financeiro/_modal_pagar.html' %}
 {% endblock %}

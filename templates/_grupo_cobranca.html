@@ -1,0 +1,36 @@
+<details class="group">
+  <summary class="px-4 py-3 flex flex-wrap items-center gap-x-3 gap-y-2 cursor-pointer hover:bg-slate-50 list-none">
+    <div class="flex-1 min-w-[180px]">
+      <p class="text-sm font-medium text-slate-800">{{ g.nome }}</p>
+      <p class="text-xs text-slate-500">
+        {% if g.qtd_clientes > 1 %}{{ g.qtd_clientes }} clientes · {% elif g.itens.0.lista.cliente.nome != g.nome %}De {{ g.itens.0.lista.cliente.nome }} · {% endif %}{{ g.itens|length }} mensalidade{{ g.itens|length|pluralize:"s" }} · {% if atrasado %}desde {% else %}a partir de {% endif %}{{ g.desde|date:"d/m/Y" }}
+      </p>
+    </div>
+    <span class="text-sm font-semibold text-slate-700 whitespace-nowrap">R$ {{ g.total|floatformat:2 }}</span>
+    {% if g.whatsapp %}
+    <button type="button" data-wpp data-numero="{{ g.whatsapp }}" data-tpl="{{ tipo }}"
+            data-nome="{{ g.tratamento }}" data-valor="{{ g.total|floatformat:2 }}" data-lista="{{ g.nomes_listas }}"
+            data-vencimento="{{ g.desde|date:'d/m/Y' }}"
+            class="text-xs px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded font-medium transition">
+      WhatsApp
+    </button>
+    {% endif %}
+    <span class="text-xs text-blue-600 group-open:hidden">Ver</span>
+    <span class="text-xs text-blue-600 hidden group-open:inline">Fechar</span>
+  </summary>
+  <div class="bg-slate-50 divide-y divide-slate-100">
+    {% for m in g.itens %}
+    <div class="px-4 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+      <div class="flex-1 min-w-[180px]">
+        <a href="{% url 'clientes:detalhe' m.lista.cliente_id %}" class="text-sm text-slate-800 hover:text-blue-600">{{ m.lista.cliente.nome }} · {{ m.lista.nome }}</a>
+        <p class="text-xs text-slate-500">Venc. {{ m.vencimento|date:"d/m/Y" }}</p>
+      </div>
+      <span class="text-sm text-slate-700 whitespace-nowrap">R$ {{ m.valor|floatformat:2 }}</span>
+      <button type="button" onclick="abrirModalPagar('{% url 'financeiro:pagar' m.pk %}', '/')"
+              class="text-xs px-2 py-1 bg-green-100 hover:bg-green-200 text-green-700 rounded font-medium transition">
+        Pagar
+      </button>
+    </div>
+    {% endfor %}
+  </div>
+</details>
