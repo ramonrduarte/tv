@@ -101,8 +101,8 @@ def vincular_automaticamente(painel):
         ja_vinculadas.add(candidatas[0].pk)
 
 
-def registrar_falha(painel, erro):
-    LeituraPainel.objects.create(painel=painel, sucesso=False, erro=str(erro)[:300])
+def registrar_falha(painel, erro, ip=''):
+    LeituraPainel.objects.create(painel=painel, sucesso=False, erro=str(erro)[:300], ip_saida=ip)
 
 
 def salvar_leitura(painel, acessos):
@@ -263,12 +263,18 @@ def na_hora(painel):
 
 
 def ler_painel(painel):
+    from .status import ip_publico
     variavel, buscar = PAINEIS_API[painel]
     nome = dict(AcessoPainel.PAINEL_CHOICES)[painel]
     if not tem_token(painel):
         raise LeituraInvalida(f'Chave da API do {nome} não configurada ({variavel}).')
+    # O IP de cada leitura mostra qual estava autorizado quando funcionou.
+    ip = ip_publico()
     try:
-        return salvar_leitura(painel, buscar())
+        leitura = salvar_leitura(painel, buscar())
     except LeituraInvalida as e:
-        registrar_falha(painel, e)
+        registrar_falha(painel, e, ip)
         raise
+    LeituraPainel.objects.filter(pk=leitura.pk).update(ip_saida=ip)
+    leitura.ip_saida = ip
+    return leitura

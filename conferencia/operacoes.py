@@ -149,6 +149,8 @@ def executar_renovacao(lista_ids, meses, planos_bit, usuario, nomes_planos=None)
                 AcessoPainel.objects.filter(pk=acesso.pk).update(validade=validade)
             if creditos is not None:
                 resultado['creditos_bit'] = creditos
+                from .status import atualizar_creditos
+                atualizar_creditos(creditos)
         operacao.save()
     return resultado
 

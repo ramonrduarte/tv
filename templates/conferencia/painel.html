@@ -45,6 +45,7 @@
     {% elif p.ultima and not p.ultima.sucesso %}
     <p class="text-sm text-red-600 mt-3">Última tentativa falhou em {{ p.ultima.lida_em|date:"d/m/Y H:i" }}: {{ p.ultima.erro }}</p>
     {% endif %}
+    {% if p.chave == 'bit' %}{% include 'conferencia/_situacao_bit.html' %}{% endif %}
   </section>
   {% endfor %}
 </div>

@@ -11,6 +11,7 @@ from django.db.models import Sum, F, ExpressionWrapper, DecimalField, Count, Q
 from .models import Cliente, Pagador, TemplateMensagem
 from .forms import ClienteForm, PagadorForm
 from .agrupamento import agrupar_cobrancas, agrupar_por_cliente, agrupar_por_pagador
+from conferencia.status import situacao_bit
 from listas.models import ListaCanais, ListaApp
 from financeiro.models import Mensalidade
 
@@ -201,6 +202,7 @@ def dashboard(request):
         'hoje': hoje,
         'apps_vencidos': apps_vencidos,
         'apps_vencendo': apps_vencendo,
+        'bit': situacao_bit(),
     })
 
 

@@ -62,6 +62,7 @@ class LeituraPainel(models.Model):
     sucesso = models.BooleanField('Sucesso', default=True)
     total = models.PositiveIntegerField('Acessos lidos', default=0)
     erro = models.CharField('Erro', max_length=300, blank=True)
+    ip_saida = models.CharField('IP de saída do servidor', max_length=45, blank=True)
 
     class Meta:
         verbose_name = 'Leitura de painel'

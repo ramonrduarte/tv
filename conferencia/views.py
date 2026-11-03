@@ -16,6 +16,7 @@ from .models import (
     AcessoPainel, ConfiguracaoConferencia, DivergenciaIgnorada, LeituraPainel, OperacaoPainel, VinculoPainel,
 )
 from .regras import montar_conferencia
+from .status import situacao_bit
 
 NOMES_PAINEL = dict(AcessoPainel.PAINEL_CHOICES)
 
@@ -37,6 +38,7 @@ def painel(request):
     contexto = montar_conferencia()
     contexto.update({
         'paineis': [_cartao(p) for p in PAINEIS_API],
+        'bit': situacao_bit(),
         'configuracao': ConfiguracaoConferencia.atual(),
         'intervalos': ConfiguracaoConferencia.INTERVALO_CHOICES,
     })

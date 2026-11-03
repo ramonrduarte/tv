@@ -1,5 +1,6 @@
 import environ
 import os
+import sys
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -138,3 +139,6 @@ if not DEBUG:
     CSRF_COOKIE_SECURE = True
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# Créditos do BIT e IP de saída são consultados nas telas; nos testes isso fica desligado.
+CONSULTAS_NA_TELA = 'test' not in sys.argv
