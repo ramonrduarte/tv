@@ -3,63 +3,47 @@
 {% block page_title %}Conferência dos painéis{% endblock %}
 
 {% block content %}
-<p class="text-sm text-slate-500 mb-4">Só consulta: nada é alterado nos painéis nem nos cadastros.</p>
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+  <p class="text-sm text-slate-500">Só consulta: nada é alterado nos painéis nem nos cadastros.</p>
+  <form method="post" action="{% url 'conferencia:salvar_frequencia' %}" class="flex flex-wrap items-center gap-2">
+    {% csrf_token %}
+    <label for="intervalo_horas" class="text-sm text-slate-500">Leitura automática dos painéis</label>
+    <select id="intervalo_horas" name="intervalo_horas" class="px-2 py-1.5 text-sm border border-slate-300 rounded-lg bg-white">
+      {% for valor, nome in intervalos %}
+      <option value="{{ valor }}" {% if valor == configuracao.intervalo_horas %}selected{% endif %}>{{ nome }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 transition">Salvar</button>
+  </form>
+</div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+  {% for p in paineis %}
   <section class="bg-white rounded-xl border border-slate-200 p-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h2 class="font-semibold text-slate-800">knewcms</h2>
-        {% if knewcms.sucesso %}
-        <p class="text-sm text-slate-500">{{ knewcms.sucesso.total }} acessos · lido em {{ knewcms.sucesso.lida_em|date:"d/m/Y H:i" }}</p>
+        <h2 class="font-semibold text-slate-800">{{ p.nome }}</h2>
+        {% if p.sucesso %}
+        <p class="text-sm text-slate-500">{{ p.sucesso.total }} acessos · lido em {{ p.sucesso.lida_em|date:"d/m/Y H:i" }}</p>
         {% else %}
         <p class="text-sm text-slate-500">Ainda não lido.</p>
         {% endif %}
       </div>
-      <form method="post" action="{% url 'conferencia:atualizar_knewcms' %}">
+      <form method="post" action="{% url 'conferencia:atualizar' p.chave %}">
         {% csrf_token %}
-        <button type="submit" {% if not tem_token %}disabled{% endif %}
+        <button type="submit" {% if not p.tem_token %}disabled{% endif %}
                 class="px-3 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
           Atualizar agora
         </button>
       </form>
     </div>
-    {% if not tem_token %}
-    <p class="text-sm text-yellow-700 mt-3">Falta configurar a variável WWPANEL_API_TOKEN no servidor.</p>
-    {% elif knewcms.ultima and not knewcms.ultima.sucesso %}
-    <p class="text-sm text-red-600 mt-3">Última tentativa falhou em {{ knewcms.ultima.lida_em|date:"d/m/Y H:i" }}: {{ knewcms.ultima.erro }}</p>
+    {% if not p.tem_token %}
+    <p class="text-sm text-yellow-700 mt-3">Falta configurar a variável {{ p.variavel }} no servidor.</p>
+    {% elif p.ultima and not p.ultima.sucesso %}
+    <p class="text-sm text-red-600 mt-3">Última tentativa falhou em {{ p.ultima.lida_em|date:"d/m/Y H:i" }}: {{ p.ultima.erro }}</p>
     {% endif %}
-    <form method="post" action="{% url 'conferencia:salvar_frequencia' %}" class="flex flex-wrap items-center gap-2 mt-3">
-      {% csrf_token %}
-      <label for="intervalo_horas" class="text-sm text-slate-500">Leitura automática</label>
-      <select id="intervalo_horas" name="intervalo_horas" class="px-2 py-1.5 text-sm border border-slate-300 rounded-lg bg-white">
-        {% for valor, nome in intervalos %}
-        <option value="{{ valor }}" {% if valor == configuracao.intervalo_horas %}selected{% endif %}>{{ nome }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit" class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 transition">Salvar</button>
-    </form>
   </section>
-
-  <section class="bg-white rounded-xl border border-slate-200 p-4">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h2 class="font-semibold text-slate-800">BIT</h2>
-        {% if bit.sucesso %}
-        <p class="text-sm text-slate-500">{{ bit.sucesso.total }} acessos · lido em {{ bit.sucesso.lida_em|date:"d/m/Y H:i" }}</p>
-        {% else %}
-        <p class="text-sm text-slate-500">Ainda não lido.</p>
-        {% endif %}
-      </div>
-      <a href="{{ bookmarklet|urlencode:':/?=&' }}" onclick="return false"
-         class="px-3 py-2 text-sm font-medium rounded-lg border border-slate-300 text-slate-700 cursor-grab"
-         title="Arraste para a barra de favoritos">Conferir BIT</a>
-    </div>
-    {% if bit.ultima and not bit.ultima.sucesso %}
-    <p class="text-sm text-red-600 mt-3">Última tentativa falhou em {{ bit.ultima.lida_em|date:"d/m/Y H:i" }}: {{ bit.ultima.erro }}</p>
-    {% endif %}
-    <p class="text-sm text-slate-500 mt-3">Arraste "Conferir BIT" para a barra de favoritos uma vez. Para ler, abra a tela de listas do BIT e clique no favorito.</p>
-  </section>
+  {% endfor %}
 </div>
 
 {% if not total %}

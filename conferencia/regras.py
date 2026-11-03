@@ -92,7 +92,7 @@ def _comparar_dados(lista, acesso, painel, vinculo):
     # O max_connections do knewcms não representa as telas contratadas.
     if acesso.painel != 'knewcms' and acesso.telas and acesso.telas != lista.num_telas:
         achar('telas', f'{acesso.telas} tela(s) no painel, {lista.num_telas} no sistema.', str(acesso.telas))
-    if acesso.painel == 'knewcms' and acesso.teste != lista.em_teste:
+    if acesso.teste != lista.em_teste:
         achar('teste', 'Em teste no painel, normal no sistema.' if acesso.teste else 'Normal no painel, em teste no sistema.')
     fone_painel, fone_cliente = _digitos(acesso.whatsapp), _digitos(lista.cliente.whatsapp)
     if fone_painel and fone_cliente and not (fone_painel.endswith(fone_cliente) or fone_cliente.endswith(fone_painel)):

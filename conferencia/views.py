@@ -1,23 +1,25 @@
-import json
-
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from listas.models import ListaCanais
 
-from .bookmarklet import gerar_bookmarklet
-from .leitura import LeituraInvalida, importar_bit, ler_knewcms
+from .leitura import PAINEIS_API, LeituraInvalida, ler_painel, tem_token
 from .models import AcessoPainel, ConfiguracaoConferencia, DivergenciaIgnorada, LeituraPainel, VinculoPainel
 from .regras import montar_conferencia
 
+NOMES_PAINEL = dict(AcessoPainel.PAINEL_CHOICES)
 
-def _ultima_leitura(painel):
+
+def _cartao(painel):
     leituras = LeituraPainel.objects.filter(painel=painel)
     return {
+        'chave': painel,
+        'nome': NOMES_PAINEL[painel],
+        'variavel': PAINEIS_API[painel][0],
+        'tem_token': tem_token(painel),
         'sucesso': leituras.filter(sucesso=True).first(),
         'ultima': leituras.first(),
     }
@@ -27,22 +29,21 @@ def _ultima_leitura(painel):
 def painel(request):
     contexto = montar_conferencia()
     contexto.update({
-        'knewcms': _ultima_leitura('knewcms'),
-        'bit': _ultima_leitura('bit'),
-        'tem_token': bool(settings.WWPANEL_API_TOKEN),
+        'paineis': [_cartao(p) for p in PAINEIS_API],
         'configuracao': ConfiguracaoConferencia.atual(),
         'intervalos': ConfiguracaoConferencia.INTERVALO_CHOICES,
-        'bookmarklet': gerar_bookmarklet(f'{request.scheme}://{request.get_host()}'),
     })
     return render(request, 'conferencia/painel.html', contexto)
 
 
 @login_required
 @require_POST
-def atualizar_knewcms(request):
+def atualizar(request, painel):
+    if painel not in PAINEIS_API:
+        raise Http404
     try:
-        leitura = ler_knewcms()
-        messages.success(request, f'knewcms lido: {leitura.total} acessos.')
+        leitura = ler_painel(painel)
+        messages.success(request, f'{NOMES_PAINEL[painel]} lido: {leitura.total} acessos.')
     except LeituraInvalida as e:
         messages.error(request, str(e))
     return redirect('conferencia:painel')
@@ -59,31 +60,10 @@ def salvar_frequencia(request):
         configuracao = ConfiguracaoConferencia.atual()
         configuracao.intervalo_horas = horas
         configuracao.save()
-        messages.success(request, f'Leitura do knewcms: {configuracao.get_intervalo_horas_display().lower()}.')
+        messages.success(request, f'Leitura dos painéis: {configuracao.get_intervalo_horas_display().lower()}.')
     else:
         messages.error(request, 'Frequência inválida.')
     return redirect('conferencia:painel')
-
-
-@login_required
-def receber_bit(request):
-    resposta = render(request, 'conferencia/receber_bit.html')
-    # O padrão do Django (same-origin) separa esta aba da aba do BIT e impede a entrega da leitura.
-    resposta['Cross-Origin-Opener-Policy'] = 'unsafe-none'
-    return resposta
-
-
-@login_required
-@require_POST
-def importar_bit_view(request):
-    try:
-        dados = json.loads(request.body)
-        leitura = importar_bit(dados.get('total'), dados.get('linhas'))
-    except (ValueError, AttributeError):
-        return JsonResponse({'erro': 'A leitura do BIT veio em um formato inesperado.'}, status=400)
-    except LeituraInvalida as e:
-        return JsonResponse({'erro': str(e)}, status=400)
-    return JsonResponse({'total': leitura.total})
 
 
 @login_required
@@ -95,7 +75,7 @@ def vincular(request):
     if not lista:
         messages.error(request, 'Escolha a lista para vincular.')
     elif not acesso.painel_id:
-        messages.error(request, 'Este acesso ainda não tem identificador. Faça uma nova leitura do painel.')
+        messages.error(request, 'Este acesso não tem identificador no painel e é comparado só pelo usuário.')
     elif VinculoPainel.objects.filter(lista=lista).exists():
         messages.error(request, 'Esta lista já está vinculada a outro acesso.')
     elif VinculoPainel.objects.filter(painel=acesso.painel, painel_id=acesso.painel_id).exists():

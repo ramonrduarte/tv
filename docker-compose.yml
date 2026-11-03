@@ -17,6 +17,7 @@ services:
       - DB_PORT=${DB_PORT:-5432}
       - API_TOKEN_WHATSAPP=${API_TOKEN_WHATSAPP}
       - WWPANEL_API_TOKEN=${WWPANEL_API_TOKEN:-}
+      - BIT_API_TOKEN=${BIT_API_TOKEN:-}
     networks:
       - network_public
 

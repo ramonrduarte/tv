@@ -11,8 +11,7 @@ from clientes.models import Cliente, Pagador
 from listas.models import AppIPTV, ListaApp, ListaCanais, Servidor
 
 from . import leitura
-from .bookmarklet import gerar_bookmarklet
-from .leitura import LeituraInvalida, assinar_senha, importar_bit, knewcms_na_hora, salvar_leitura
+from .leitura import LeituraInvalida, assinar_senha, na_hora, salvar_leitura
 from .models import AcessoPainel, ConfiguracaoConferencia, DivergenciaIgnorada, LeituraPainel, VinculoPainel
 from .regras import calcular_divergencias, contar_divergencias, montar_conferencia
 
@@ -152,21 +151,6 @@ class RegrasTests(Base):
 
 
 class LeituraTests(Base):
-    def test_nao_guarda_senha(self):
-        importar_bit(1, [{'usuario': 'a', 'senha': 'segredo', 'estado': 'Ativa', 'telas': '2', 'validade': '10/12/2026 13:16'}])
-        registro = AcessoPainel.objects.get(usuario='a')
-        self.assertNotEqual(registro.senha_hash, 'segredo')
-        self.assertEqual(registro.senha_hash, assinar_senha('segredo'))
-        self.assertEqual(registro.telas, 2)
-        self.assertEqual(timezone.localtime(registro.validade).strftime('%d/%m/%Y %H:%M'), '10/12/2026 13:16')
-
-    def test_bit_incompleto_mantem_dados_anteriores(self):
-        salvar_leitura('bit', [acesso('a')])
-        with self.assertRaises(LeituraInvalida):
-            importar_bit(2, [{'usuario': 'b'}])
-        self.assertTrue(AcessoPainel.objects.filter(usuario='a').exists())
-        self.assertFalse(LeituraPainel.objects.filter(painel='bit').first().sucesso)
-
     def test_queda_brusca_mantem_dados_anteriores(self):
         salvar_leitura('bit', [acesso(f'u{i}') for i in range(10)])
         with self.assertRaises(LeituraInvalida):
@@ -190,7 +174,7 @@ class LeituraTests(Base):
             return {'items': [], 'pagesQuantity': 0}
 
         with mock.patch.object(leitura, '_knewcms_get', side_effect=resposta) as chamada:
-            leitura.ler_knewcms()
+            leitura.ler_painel('knewcms')
         self.assertEqual(chamada.call_count, 5)
         self.assertEqual(AcessoPainel.objects.filter(painel='knewcms').count(), 4)
         self.assertTrue(AcessoPainel.objects.get(usuario='lixo').lixeira)
@@ -201,8 +185,61 @@ class LeituraTests(Base):
     def test_knewcms_sem_token_falha_sem_chamar_api(self):
         with mock.patch.object(leitura, '_knewcms_get') as chamada:
             with self.assertRaises(LeituraInvalida):
-                leitura.ler_knewcms()
+                leitura.ler_painel('knewcms')
         chamada.assert_not_called()
+
+    @override_settings(BIT_API_TOKEN='bit_teste')
+    def test_bit_le_listas_e_testes_pela_api_sem_guardar_senha(self):
+        def resposta(caminho, params):
+            if caminho == '/lines':
+                itens = [{'username': f"l{params['page']}", 'password': 'segredo', 'status': 'ACTIVE', 'expiresAt': '2026-12-10T16:16:00.000Z', 'screens': 2, 'whatsapp': '5551900000001', 'notes': 'Sala'}]
+                if params['page'] == 2:
+                    itens.append({'username': 'bloq', 'password': 'x', 'status': 'BANNED', 'expiresAt': None, 'screens': 1})
+                return {'data': itens, 'pagination': {'page': params['page'], 'pages': 2}}
+            return {'data': [{'username': 'teste1', 'password': 'x', 'expiresAt': '2026-11-05T10:00:00.000Z'}], 'pagination': {'page': 1, 'pages': 1}}
+
+        with mock.patch.object(leitura, '_bit_get', side_effect=resposta) as chamada:
+            leitura.ler_painel('bit')
+        self.assertEqual(chamada.call_count, 3)
+        self.assertEqual({c.args[1]['limit'] for c in chamada.call_args_list}, {50})
+        l1 = AcessoPainel.objects.get(usuario='l1')
+        self.assertEqual(l1.senha_hash, assinar_senha('segredo'))
+        self.assertEqual((l1.painel_id, l1.telas, l1.observacao), ('', 2, 'Sala'))
+        self.assertEqual(timezone.localtime(l1.validade).strftime('%d/%m/%Y %H:%M'), '10/12/2026 13:16')
+        self.assertFalse(AcessoPainel.objects.get(usuario='bloq').ativo)
+        teste = AcessoPainel.objects.get(usuario='teste1')
+        self.assertTrue(teste.teste and teste.ativo)
+
+    @override_settings(BIT_API_TOKEN='bit_teste')
+    def test_erro_da_api_do_bit_mostra_o_codigo_e_mantem_dados(self):
+        salvar_leitura('bit', [acesso('a')])
+        erro = leitura.urllib.error.HTTPError('u', 403, 'x', {}, None)
+        erro.read = lambda: b'{"error": {"code": "IP_NOT_ALLOWED", "message": "IP nao autorizado"}}'
+        with mock.patch.object(leitura.urllib.request, 'urlopen', side_effect=erro):
+            with self.assertRaisesMessage(LeituraInvalida, 'IP_NOT_ALLOWED'):
+                leitura.ler_painel('bit')
+        self.assertTrue(AcessoPainel.objects.filter(usuario='a').exists())
+        self.assertIn('IP_NOT_ALLOWED', LeituraPainel.objects.first().erro)
+
+    @override_settings(BIT_API_TOKEN='')
+    def test_bit_sem_token_falha_sem_chamar_api(self):
+        with mock.patch.object(leitura, '_bit_get') as chamada:
+            with self.assertRaises(LeituraInvalida):
+                leitura.ler_painel('bit')
+        chamada.assert_not_called()
+
+    def test_bit_compara_so_pelo_usuario_e_nao_cria_vinculo(self):
+        self.lista('antigo', self.bit)
+        salvar_leitura('bit', [acesso('novo')])
+        self.assertFalse(VinculoPainel.objects.exists())
+        achados = calcular_divergencias()[0]
+        self.assertEqual({a.tipo for a in achados}, {'fora_paineis', 'fora_sistema'})
+        self.assertEqual([a for a in achados if a.tipo == 'fora_sistema'][0].candidatas, [])
+
+    def test_teste_diferente_tambem_vale_para_o_bit(self):
+        self.lista('casa', self.bit, em_teste=False)
+        salvar_leitura('bit', [acesso('casa', teste=True)])
+        self.assertIn(('teste', 'casa'), self.tipos())
 
 
 class VinculoTests(Base):
@@ -274,35 +311,6 @@ class VinculoTests(Base):
         achado = [a for a in calcular_divergencias()[0] if a.tipo == 'fora_paineis'][0]
         self.assertIn('o acesso vinculado saiu do painel', achado.detalhe)
 
-    def test_bit_usa_o_id_e_le_os_campos_do_painel(self):
-        self.lista('um', self.bit)
-        importar_bit(2, [
-            {'id': 'uuid-1', 'usuario': 'um', 'senha': 's1', 'estado': 'ACTIVE', 'telas': 2, 'validade': '2026-12-10T16:16:00.000Z', 'whatsapp': '5551900000001', 'observacao': 'Sala'},
-            {'id': 'uuid-2', 'usuario': 'dois', 'senha': 's2', 'estado': 'DISABLED', 'telas': 1, 'validade': '2026-12-10T16:16:00.000Z', 'whatsapp': None, 'observacao': None},
-        ])
-        um = AcessoPainel.objects.get(usuario='um')
-        self.assertEqual(um.painel_id, 'uuid-1')
-        self.assertTrue(um.ativo)
-        self.assertEqual(um.telas, 2)
-        self.assertEqual(um.observacao, 'Sala')
-        self.assertEqual(timezone.localtime(um.validade).strftime('%d/%m/%Y %H:%M'), '10/12/2026 13:16')
-        self.assertFalse(AcessoPainel.objects.get(usuario='dois').ativo)
-        self.assertEqual(VinculoPainel.objects.get().painel_id, 'uuid-1')
-
-    def test_troca_de_usuario_no_bit_mantem_o_vinculo(self):
-        self.lista('antigo', self.bit)
-        linha = {'id': 'uuid-1', 'senha': 's1', 'estado': 'ACTIVE', 'telas': 1, 'validade': '2027-12-10T16:16:00.000Z'}
-        importar_bit(1, [{**linha, 'usuario': 'antigo'}])
-        importar_bit(1, [{**linha, 'usuario': 'novo'}])
-        achados = calcular_divergencias()[0]
-        self.assertEqual([a.tipo for a in achados], ['login'])
-
-    def test_favorito_antigo_sem_criacao_continua_comparando_por_login(self):
-        self.lista('um', self.bit)
-        importar_bit(1, [{'usuario': 'um', 'senha': 's1', 'estado': 'Ativa', 'telas': '1', 'validade': '10/12/2026 13:16'}])
-        self.assertFalse(VinculoPainel.objects.exists())
-        self.assertEqual(calcular_divergencias()[0], [])
-
     def test_contagem_do_menu_muda_com_novo_vinculo(self):
         lista = self.lista('antigo', self.warez)
         salvar_leitura('knewcms', [acesso('novo', painel_id='77')])
@@ -320,27 +328,27 @@ class FrequenciaTests(Base):
         self.assertEqual(ConfiguracaoConferencia.atual().intervalo_horas, 12)
 
     def test_sem_leitura_anterior_le(self):
-        self.assertTrue(knewcms_na_hora())
+        self.assertTrue(na_hora('knewcms'))
 
     def test_respeita_o_intervalo(self):
         self.registrar_leitura(5)
-        self.assertFalse(knewcms_na_hora())
+        self.assertFalse(na_hora('knewcms'))
         LeituraPainel.objects.all().delete()
         self.registrar_leitura(12)
-        self.assertTrue(knewcms_na_hora())
+        self.assertTrue(na_hora('knewcms'))
 
     def test_folga_nao_pula_o_horario(self):
         self.registrar_leitura(11.9)
-        self.assertTrue(knewcms_na_hora())
+        self.assertTrue(na_hora('knewcms'))
 
     def test_so_manual_nunca_le_sozinho(self):
         ConfiguracaoConferencia.objects.update_or_create(pk=1, defaults={'intervalo_horas': 0})
-        self.assertFalse(knewcms_na_hora())
+        self.assertFalse(na_hora('knewcms'))
 
     def test_falha_nao_conta_como_leitura(self):
         self.registrar_leitura(13)
         LeituraPainel.objects.create(painel='knewcms', sucesso=False, erro='x')
-        self.assertTrue(knewcms_na_hora())
+        self.assertTrue(na_hora('knewcms'))
 
     def test_tela_salva_e_recusa_valor_invalido(self):
         self.client.force_login(User.objects.create_user('ramon', password='x'))
@@ -358,8 +366,9 @@ class TelasTests(Base):
 
     def test_exige_login(self):
         self.assertEqual(self.client.get(reverse('conferencia:painel')).status_code, 302)
-        resposta = self.client.post(reverse('conferencia:importar_bit'), '{}', content_type='application/json')
+        resposta = self.client.post(reverse('conferencia:atualizar', args=['bit']))
         self.assertEqual(resposta.status_code, 302)
+        self.assertFalse(LeituraPainel.objects.exists())
 
     def test_painel_e_menu_mostram_divergencia(self):
         self.lista('casa', self.bit)
@@ -367,30 +376,6 @@ class TelasTests(Base):
         self.client.force_login(self.user)
         resposta = self.client.get(reverse('conferencia:painel'))
         self.assertContains(resposta, 'A senha do painel é diferente da salva')
-        self.assertContains(resposta, 'Conferir BIT')
+        self.assertContains(resposta, 'BIT_API_TOKEN')
+        self.assertNotContains(resposta, 'Conferir BIT')
         self.assertEqual(resposta.context['conferencia_total'], 1)
-
-    def test_so_a_aba_que_recebe_o_bit_libera_a_comunicacao_entre_abas(self):
-        self.client.force_login(self.user)
-        resposta = self.client.get(reverse('conferencia:receber_bit'))
-        self.assertEqual(resposta['Cross-Origin-Opener-Policy'], 'unsafe-none')
-        resposta = self.client.get(reverse('conferencia:painel'))
-        self.assertEqual(resposta['Cross-Origin-Opener-Policy'], 'same-origin')
-
-    def test_importa_bit_por_post(self):
-        self.client.force_login(self.user)
-        corpo = {'total': 1, 'linhas': [{'usuario': 'a', 'senha': 'x', 'estado': 'Ativa', 'telas': '1', 'validade': '10/12/2026 13:16'}]}
-        resposta = self.client.post(reverse('conferencia:importar_bit'), corpo, content_type='application/json')
-        self.assertEqual(resposta.status_code, 200)
-        self.assertEqual(resposta.json(), {'total': 1})
-
-    def test_importa_bit_invalido_responde_erro(self):
-        self.client.force_login(self.user)
-        resposta = self.client.post(reverse('conferencia:importar_bit'), 'nao-json', content_type='application/json')
-        self.assertEqual(resposta.status_code, 400)
-
-    def test_bookmarklet_so_envia_para_a_origem_do_sistema(self):
-        codigo = gerar_bookmarklet('https://tv.rdmon.com')
-        self.assertTrue(codigo.startswith('javascript:'))
-        self.assertIn('"https://tv.rdmon.com"', codigo)
-        self.assertNotIn('\n', codigo)

@@ -17,6 +17,7 @@ from listas.models import ListaCanais
 from .models import AcessoPainel, ConfiguracaoConferencia, LeituraPainel, VinculoPainel
 
 KNEWCMS_API = 'https://mcapi.knewcms.com:2087'
+BIT_API = 'https://public-api.bitpanel.vip/v1'
 # Uma leitura muito menor que a anterior costuma ser filtro ou falha, não clientes que sumiram.
 PROPORCAO_MINIMA = 0.5
 
@@ -164,64 +165,104 @@ def buscar_knewcms():
     return list(acessos.values())
 
 
-def knewcms_na_hora():
+# ---------------------------------------------------------------------------
+# BIT (API do revendedor, somente GET; identifica os acessos só pelo usuário)
+# ---------------------------------------------------------------------------
+
+def _bit_get(caminho, params):
+    url = f'{BIT_API}{caminho}?{urllib.parse.urlencode(params)}'
+    pedido = urllib.request.Request(url, headers={
+        'Authorization': f'Bearer {settings.BIT_API_TOKEN}',
+        'Accept': 'application/json',
+        'User-Agent': 'IPTV-Manager/1.0',
+    })
+    try:
+        with urllib.request.urlopen(pedido, timeout=30) as resposta:
+            return json.loads(resposta.read().decode())
+    except urllib.error.HTTPError as e:
+        # A API devolve {"error": {"code", "message"}}; o código ajuda a saber se é IP ou token.
+        try:
+            erro = json.loads(e.read().decode()).get('error') or {}
+            detalhe = f": {erro.get('code', '')} {erro.get('message', '')}".rstrip()[:160]
+        except (ValueError, AttributeError):
+            detalhe = ''
+        raise LeituraInvalida(f'A API do BIT respondeu com erro {e.code}{detalhe}.')
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        raise LeituraInvalida(f'Não foi possível acessar a API do BIT: {e}')
+    except ValueError:
+        raise LeituraInvalida('A API do BIT retornou uma resposta inesperada.')
+
+
+def _acesso_bit(item, teste):
+    usuario = str(item.get('username') or '').strip()
+    if not usuario:
+        raise LeituraInvalida('A API do BIT retornou um acesso sem usuário.')
+    return {
+        'usuario': usuario,
+        'painel_id': '',
+        'senha_hash': assinar_senha(item.get('password') or ''),
+        # Os testes não trazem status: estão liberados até vencer.
+        'ativo': teste or item.get('status') == 'ACTIVE',
+        'lixeira': False,
+        'teste': teste,
+        'validade': _data_knewcms(item.get('expiresAt')),
+        'telas': item.get('screens'),
+        'whatsapp': str(item.get('whatsapp') or '')[:40],
+        'observacao': item.get('notes') or '',
+    }
+
+
+def buscar_bit():
+    acessos = {}
+    for caminho, teste in (('/lines', False), ('/trials', True)):
+        pagina = 1
+        while True:
+            dados = _bit_get(caminho, {'page': pagina, 'limit': 50})
+            try:
+                for item in dados['data']:
+                    acesso = _acesso_bit(item, teste)
+                    acessos[acesso['usuario']] = acesso
+                paginas = dados['pagination']['pages']
+            except (KeyError, TypeError):
+                raise LeituraInvalida('A API do BIT retornou um formato inesperado.')
+            if pagina >= paginas:
+                break
+            pagina += 1
+    return list(acessos.values())
+
+
+# ---------------------------------------------------------------------------
+# Leitura dos painéis
+# ---------------------------------------------------------------------------
+
+PAINEIS_API = {
+    'knewcms': ('WWPANEL_API_TOKEN', buscar_knewcms),
+    'bit': ('BIT_API_TOKEN', buscar_bit),
+}
+
+
+def tem_token(painel):
+    return bool(getattr(settings, PAINEIS_API[painel][0], ''))
+
+
+def na_hora(painel):
     """A verificação roda de hora em hora; a folga evita perder o horário por poucos minutos."""
     horas = ConfiguracaoConferencia.atual().intervalo_horas
     if not horas:
         return False
-    ultima = LeituraPainel.objects.filter(painel='knewcms', sucesso=True).first()
+    ultima = LeituraPainel.objects.filter(painel=painel, sucesso=True).first()
     if not ultima:
         return True
     return timezone.now() - ultima.lida_em >= timedelta(hours=horas) - timedelta(minutes=10)
 
 
-def ler_knewcms():
-    if not settings.WWPANEL_API_TOKEN:
-        raise LeituraInvalida('Chave da API do knewcms não configurada (WWPANEL_API_TOKEN).')
+def ler_painel(painel):
+    variavel, buscar = PAINEIS_API[painel]
+    nome = dict(AcessoPainel.PAINEL_CHOICES)[painel]
+    if not tem_token(painel):
+        raise LeituraInvalida(f'Chave da API do {nome} não configurada ({variavel}).')
     try:
-        return salvar_leitura('knewcms', buscar_knewcms())
+        return salvar_leitura(painel, buscar())
     except LeituraInvalida as e:
-        registrar_falha('knewcms', e)
-        raise
-
-
-# ---------------------------------------------------------------------------
-# BIT (enviado pelo botão salvo no navegador, a partir da tela de listas)
-# ---------------------------------------------------------------------------
-
-def _data_bit(valor):
-    valor = str(valor or '').strip()
-    try:
-        # O favorito antigo envia a data como aparece na tela.
-        return timezone.make_aware(datetime.strptime(valor, '%d/%m/%Y %H:%M'))
-    except ValueError:
-        return _data_knewcms(valor)
-
-
-def _acesso_bit(linha):
-    usuario = str(linha.get('usuario') or '').strip()
-    if not usuario:
-        raise LeituraInvalida('Uma das linhas do BIT veio sem usuário.')
-    telas = str(linha.get('telas') or '').strip()
-    return {
-        'usuario': usuario,
-        'painel_id': str(linha.get('id') or '').strip(),
-        'senha_hash': assinar_senha(str(linha.get('senha') or '').strip()),
-        'ativo': str(linha.get('estado') or '').strip().lower() in ('active', 'ativa'),
-        'validade': _data_bit(linha.get('validade')),
-        'telas': int(telas) if telas.isdigit() else None,
-        'whatsapp': str(linha.get('whatsapp') or '').strip()[:40],
-        'observacao': str(linha.get('observacao') or '').strip(),
-    }
-
-
-def importar_bit(total, linhas):
-    try:
-        if not isinstance(linhas, list) or not isinstance(total, int):
-            raise LeituraInvalida('A leitura do BIT veio em um formato inesperado.')
-        if total != len(linhas):
-            raise LeituraInvalida(f'O BIT informou {total} acessos, mas chegaram {len(linhas)}.')
-        return salvar_leitura('bit', [_acesso_bit(linha) for linha in linhas])
-    except LeituraInvalida as e:
-        registrar_falha('bit', e)
+        registrar_falha(painel, e)
         raise

@@ -128,6 +128,9 @@ API_TOKEN_WHATSAPP = env('API_TOKEN_WHATSAPP', default='')
 # Chave da API do knewcms, usada só para consultar os acessos
 WWPANEL_API_TOKEN = env('WWPANEL_API_TOKEN', default='')
 
+# Token da API do revendedor do BIT (começa com bit_), usado só para consultar os acessos
+BIT_API_TOKEN = env('BIT_API_TOKEN', default='')
+
 # Segurança extra em produção (quando atrás de proxy reverso como Nginx/Traefik)
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
