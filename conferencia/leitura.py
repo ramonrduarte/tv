@@ -218,6 +218,27 @@ def _acesso_bit(item, teste):
     }
 
 
+def atualizar_endereco_bit():
+    """O endereço é o mesmo para todas as linhas do BIT: lê de uma e grava nos servidores do BIT."""
+    from listas.models import Servidor
+    servidores = [s for s in Servidor.objects.all() if painel_do_servidor(s) == 'bit']
+    acesso = AcessoPainel.objects.filter(painel='bit', teste=False).order_by('usuario').first()
+    if not servidores or not acesso:
+        return ''
+    try:
+        dados = _bit_get(f'/lines/{urllib.parse.quote(acesso.usuario, safe="")}/links', None)
+    except LeituraInvalida:
+        return ''
+    endereco = str((dados or {}).get('server') or '').strip().rstrip('/')[:500]
+    if not endereco.startswith(('http://', 'https://')):
+        return ''
+    for servidor in servidores:
+        if servidor.dns != endereco or servidor.porta is not None:
+            servidor.dns, servidor.porta = endereco, None
+            servidor.save(update_fields=['dns', 'porta'])
+    return endereco
+
+
 def buscar_bit():
     acessos = {}
     for caminho, teste in (('/lines', False), ('/trials', True)):
@@ -277,4 +298,6 @@ def ler_painel(painel):
         raise
     LeituraPainel.objects.filter(pk=leitura.pk).update(ip_saida=ip)
     leitura.ip_saida = ip
+    if painel == 'bit':
+        atualizar_endereco_bit()
     return leitura

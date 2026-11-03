@@ -32,7 +32,7 @@ def usa_m3u(lista):
 def _servidor(lista, lista_app=None):
     endereco = (lista_app.dns_customizado if lista_app and lista_app.dns_customizado else '') or ''
     if not endereco and lista.servidor_id:
-        endereco = f'{lista.servidor.dns}:{lista.servidor.porta}'
+        endereco = lista.servidor.endereco
     endereco = endereco.strip().rstrip('/')
     if endereco and not re.match(r'^https?://', endereco):
         endereco = f'http://{endereco}'
@@ -68,7 +68,7 @@ def dados(lista, lista_app=None, precisa_links=True):
     return {
         'servidor': servidor,
         'host': partes.hostname if partes else '',
-        'porta': str(partes.port or '') if partes else '',
+        'porta': str(partes.port or (443 if partes.scheme == 'https' else 80)) if partes else '',
         'usuario': usuario,
         'senha': senha,
         'm3u': m3u,

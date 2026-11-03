@@ -200,8 +200,9 @@ class LeituraTests(Base):
 
         with mock.patch.object(leitura, '_bit_get', side_effect=resposta) as chamada:
             leitura.ler_painel('bit')
-        self.assertEqual(chamada.call_count, 3)
-        self.assertEqual({c.args[1]['limit'] for c in chamada.call_args_list}, {50})
+        paginas = [c for c in chamada.call_args_list if c.args[0] in ('/lines', '/trials')]
+        self.assertEqual(len(paginas), 3)
+        self.assertEqual({c.args[1]['limit'] for c in paginas}, {50})
         l1 = AcessoPainel.objects.get(usuario='l1')
         self.assertEqual(l1.senha_hash, assinar_senha('segredo'))
         self.assertEqual((l1.painel_id, l1.telas, l1.observacao), ('', 2, 'Sala'))
@@ -379,3 +380,25 @@ class TelasTests(Base):
         self.assertContains(resposta, 'BIT_API_TOKEN')
         self.assertNotContains(resposta, 'Conferir BIT')
         self.assertEqual(resposta.context['conferencia_total'], 1)
+
+
+class EnderecoDoBitTests(TestCase):
+    @override_settings(BIT_API_TOKEN='bit_teste')
+    def test_leitura_do_bit_grava_o_endereco_no_servidor(self):
+        from listas.models import Servidor
+        bit = Servidor.objects.create(nome='Bit', dns='http://antigo.test', porta=80)
+        outro = Servidor.objects.create(nome='Outro', dns='outro.test', porta=8080)
+
+        def resposta(caminho, params):
+            if caminho.endswith('/links'):
+                return {'server': 'http://novo.test:80/', 'm3u': 'x'}
+            if caminho == '/lines':
+                return {'data': [{'username': 'l1', 'status': 'ACTIVE'}], 'pagination': {'pages': 1}}
+            return {'data': [], 'pagination': {'pages': 1}}
+
+        with mock.patch.object(leitura, '_bit_get', side_effect=resposta):
+            leitura.ler_painel('bit')
+        bit.refresh_from_db()
+        outro.refresh_from_db()
+        self.assertEqual(bit.endereco, 'http://novo.test:80')
+        self.assertEqual(outro.endereco, 'outro.test:8080')

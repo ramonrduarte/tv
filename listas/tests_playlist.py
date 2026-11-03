@@ -1,5 +1,7 @@
 from unittest import mock
 
+from django.test import TestCase
+
 from django.urls import reverse
 
 from conferencia import escrita
@@ -57,7 +59,7 @@ class PlaylistTests(Base):
         app = AppIPTV.objects.create(nome='Clouddy', formato_lista='xc://{servidor}|{usuario}|{senha}')
         la = ListaApp.objects.create(lista=self.l_bit, app=app)
         with mock.patch.object(escrita, '_bit') as bit:
-            self.assertEqual(self.pedir(self.l_bit, tipo='app', app=la.pk).json()['texto'], 'xc://http://bit.test:80|b1|s1')
+            self.assertEqual(self.pedir(self.l_bit, tipo='app', app=la.pk).json()['texto'], 'xc://http://bit.test|b1|s1')
         bit.assert_not_called()
 
     def test_app_de_outra_lista_nao_e_aceito(self):
@@ -87,3 +89,18 @@ class PlaylistTests(Base):
         resposta = self.client.get(reverse('listas:app_iptv_novo'))
         self.assertContains(resposta, 'Modelo de lista')
         self.assertContains(resposta, '{curto}')
+
+
+class ServidorSemDnsTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        self.client.force_login(User.objects.create_user('u2', password='x'))
+
+    def test_servidor_so_com_nome_e_dns_ficticio_some(self):
+        from listas.models import Servidor
+        servidor = Servidor.objects.create(nome='Warez')
+        self.assertEqual((servidor.endereco, str(servidor)), ('', 'Warez'))
+        resposta = self.client.post(reverse('listas:servidor_novo'), {'nome': 'Outro painel', 'ativo': 'on'})
+        self.assertEqual(resposta.status_code, 302)
+        self.assertEqual(Servidor.objects.get(nome='Outro painel').endereco, '')
+        self.assertContains(self.client.get(reverse('listas:servidores')), 'No aplicativo de cada lista')

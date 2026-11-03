@@ -43,8 +43,11 @@ class Plano(models.Model):
 
 class Servidor(models.Model):
     nome = models.CharField('Nome', max_length=200)
-    dns = models.CharField('DNS / URL', max_length=500)
-    porta = models.IntegerField('Porta', default=80)
+    dns = models.CharField(
+        'DNS / URL', max_length=500, blank=True,
+        help_text='Só para servidor sem painel. No BIT o endereço vem da API; no knewcms fica no aplicativo.',
+    )
+    porta = models.IntegerField('Porta', null=True, blank=True)
     ativo = models.BooleanField('Ativo', default=True)
     notas = models.TextField('Observações', blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
@@ -55,7 +58,19 @@ class Servidor(models.Model):
         ordering = ['nome']
 
     def __str__(self):
-        return f'{self.nome} ({self.dns}:{self.porta})'
+        return f'{self.nome} ({self.endereco})' if self.endereco else self.nome
+
+    @property
+    def endereco(self):
+        dns = self.dns.strip().rstrip('/')
+        if not dns:
+            return ''
+        return f'{dns}:{self.porta}' if self.porta else dns
+
+    @property
+    def painel(self):
+        from conferencia.leitura import painel_do_servidor
+        return painel_do_servidor(self)
 
 
 class AppIPTV(models.Model):
@@ -139,8 +154,8 @@ class ListaCanais(models.Model):
 
     @property
     def dns_efetivo(self):
-        if self.servidor:
-            return f'{self.servidor.dns}:{self.servidor.porta}'
+        if self.servidor and self.servidor.endereco:
+            return self.servidor.endereco
         return '—'
 
     def status_pagamento(self):
@@ -241,6 +256,6 @@ class ListaApp(models.Model):
     def dns_efetivo(self):
         if self.dns_customizado:
             return self.dns_customizado
-        if self.lista.servidor:
-            return f'{self.lista.servidor.dns}:{self.lista.servidor.porta}'
+        if self.lista.servidor and self.lista.servidor.endereco:
+            return self.lista.servidor.endereco
         return '—'

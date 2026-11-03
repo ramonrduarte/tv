@@ -356,6 +356,7 @@ class ServidorCreateView(LoginRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['titulo'] = 'Novo Servidor'
+        ctx['servidor'] = None
         ctx['btn_label'] = 'Cadastrar'
         return ctx
 
@@ -524,8 +525,8 @@ def _checar_dns(url_str):
 def servidor_ping(request, pk):
     from django.http import JsonResponse
     servidor = get_object_or_404(Servidor, pk=pk)
-    url = f'{servidor.dns}:{servidor.porta}'
-    online = _checar_dns(url)
+    url = servidor.endereco
+    online = _checar_dns(url) if url else False
     return JsonResponse({'online': online, 'url': url})
 
 
@@ -536,9 +537,8 @@ def dns_health_check(request):
     from concurrent.futures import ThreadPoolExecutor
 
     dns_map = {}
-    for s in Servidor.objects.filter(ativo=True):
-        key = f'{s.dns}:{s.porta}'
-        dns_map[key] = s.nome
+    for s in Servidor.objects.filter(ativo=True).exclude(dns=''):
+        dns_map[s.endereco] = s.nome
     for dns_custom in (ListaApp.objects
                        .filter(lista__ativa=True)
                        .exclude(dns_customizado='')
@@ -590,9 +590,8 @@ def filtrar_por_servidor(request):
 
     # Monta dict de todos os DNS únicos em uso: dns_string -> label
     opcoes_dns = {}
-    for s in Servidor.objects.filter(ativo=True):
-        key = f'{s.dns}:{s.porta}'
-        opcoes_dns[key] = f'{s.nome} — {key}'
+    for s in Servidor.objects.filter(ativo=True).exclude(dns=''):
+        opcoes_dns[s.endereco] = f'{s.nome} — {s.endereco}'
     for dns in (ListaApp.objects
                 .filter(lista__ativa=True)
                 .exclude(dns_customizado='')
@@ -608,7 +607,7 @@ def filtrar_por_servidor(request):
         # Listas cujo servidor resulta no DNS escolhido
         q = Q()
         for s in Servidor.objects.all():
-            if f'{s.dns}:{s.porta}' == dns_escolhido:
+            if s.endereco and s.endereco == dns_escolhido:
                 q |= Q(servidor=s)
         # Listas com algum app usando dns_customizado igual ao escolhido
         q |= Q(apps__dns_customizado=dns_escolhido)

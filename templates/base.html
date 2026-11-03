@@ -2,10 +2,20 @@
 <html lang="pt-BR"
       x-data="{ dark: localStorage.getItem('iptv-theme') === 'dark', menu: false }"
       :class="{ 'dark': dark }"
-      x-init="$watch('dark', v => localStorage.setItem('iptv-theme', v ? 'dark' : 'light'))">
+      x-init="$watch('dark', v => { localStorage.setItem('iptv-theme', v ? 'dark' : 'light'); $el.style.backgroundColor = v ? '#0f1513' : ''; $el.style.colorScheme = v ? 'dark' : ''; })">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    // Aplica o tema escuro antes de desenhar a página; o Alpine só assume depois.
+    try {
+      if (localStorage.getItem('iptv-theme') === 'dark') {
+        document.documentElement.classList.add('dark');
+        document.documentElement.style.backgroundColor = '#0f1513';
+        document.documentElement.style.colorScheme = 'dark';
+      }
+    } catch (e) {}
+  </script>
   <title>{% block title %}IPTV Manager{% endblock %}</title>
   {% include '_tema.html' %}
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>

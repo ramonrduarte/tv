@@ -150,9 +150,8 @@ def dashboard(request):
     # DNS únicos em uso para o painel de saúde
     from listas.models import Servidor
     dns_saude = {}
-    for s in Servidor.objects.filter(ativo=True):
-        key = f'{s.dns}:{s.porta}'
-        dns_saude[key] = s.nome
+    for s in Servidor.objects.filter(ativo=True).exclude(dns=''):
+        dns_saude[s.endereco] = s.nome
     for dns_custom in (ListaApp.objects
                        .filter(lista__ativa=True)
                        .exclude(dns_customizado='')
