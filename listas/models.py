@@ -72,6 +72,10 @@ class AppIPTV(models.Model):
         'Instruções de Edição', blank=True,
         help_text='Texto para orientar o cliente ao editar/atualizar o app.'
     )
+    formato_lista = models.CharField(
+        'Modelo de lista', max_length=500, blank=True,
+        help_text='Como o app recebe a lista. Ex.: xc://{servidor}|{usuario}|{senha}',
+    )
     notas = models.TextField('Observações', blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 

@@ -42,7 +42,7 @@ class FiltrosRenovacaoTests(Base):
     def test_pagina_do_cliente_permite_renovar_e_alterar(self):
         resposta = self.client.get(reverse('clientes:detalhe', args=[self.l_knew.cliente_id]))
         self.assertContains(resposta, 'Renovar nos painéis')
-        self.assertContains(resposta, 'Alterar no painel')
+        self.assertContains(resposta, 'Alterar usuário ou senha')
         self.assertEqual({l.usuario for l in resposta.context['renovaveis']}, {'k1', 'k2', 'b1'})
 
     def test_renovacao_pelo_cliente_volta_para_o_cliente(self):

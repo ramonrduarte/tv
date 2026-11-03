@@ -390,6 +390,8 @@ class AppIPTVCreateView(LoginRequiredMixin, CreateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        from .playlist import VARIAVEIS
+        ctx['variaveis_playlist'] = VARIAVEIS
         ctx['titulo'] = 'Novo Aplicativo'
         ctx['btn_label'] = 'Cadastrar'
         return ctx
@@ -407,6 +409,8 @@ class AppIPTVUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        from .playlist import VARIAVEIS
+        ctx['variaveis_playlist'] = VARIAVEIS
         ctx['titulo'] = f'Editar: {self.object.nome}'
         ctx['btn_label'] = 'Salvar'
         return ctx
@@ -605,3 +609,24 @@ def filtrar_por_servidor(request):
         'dns_escolhido': dns_escolhido,
         'listas': listas,
     })
+
+
+@login_required
+def lista_playlist(request, pk):
+    """Devolve a playlist pronta para copiar, ou redireciona para baixar a M3U."""
+    from django.http import JsonResponse
+    from .playlist import PlaylistIndisponivel, gerar
+    lista = get_object_or_404(ListaCanais.objects.select_related('servidor'), pk=pk)
+    tipo = request.GET.get('tipo', 'm3u')
+    lista_app = None
+    if tipo == 'app':
+        lista_app = get_object_or_404(ListaApp.objects.select_related('app'), pk=request.GET.get('app') or 0, lista=lista)
+    if tipo not in ('m3u', 'curto', 'app'):
+        return JsonResponse({'erro': 'Tipo de playlist inválido.'}, status=400)
+    try:
+        texto, origem = gerar(lista, tipo, lista_app)
+    except PlaylistIndisponivel as e:
+        return JsonResponse({'erro': str(e)}, status=400)
+    if request.GET.get('baixar') and tipo == 'm3u':
+        return redirect(texto)
+    return JsonResponse({'texto': texto, 'origem': origem})

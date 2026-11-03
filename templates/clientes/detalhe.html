@@ -141,6 +141,13 @@
         Listas de Canais
         <span class="ml-1 text-xs font-normal text-slate-400">({{ listas|length }})</span>
       </h2>
+      {% if listas|length > 1 %}
+      <div class="flex items-center gap-2 text-xs">
+        <button type="button" @click="$dispatch('listas-abrir', true)" class="text-blue-600 hover:underline">Abrir todas</button>
+        <span class="text-slate-300">·</span>
+        <button type="button" @click="$dispatch('listas-abrir', false)" class="text-blue-600 hover:underline">Recolher todas</button>
+      </div>
+      {% endif %}
     </div>
 
     {% if renovaveis %}
@@ -171,11 +178,16 @@
 
     {% for lista in listas %}
     {% with status=lista.status_pagamento %}
-    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
+         x-data="{ aberto: {% if listas|length == 1 %}true{% else %}false{% endif %} }"
+         @listas-abrir.window="aberto = $event.detail">
 
-      <!-- Cabeçalho da lista -->
-      <div class="px-5 py-3 flex items-center justify-between border-b border-slate-100 bg-slate-50/60">
-        <div class="flex items-center gap-2">
+      <!-- Cabeçalho da lista: clique para abrir ou recolher -->
+      <div class="px-5 py-3 flex items-center justify-between gap-3 bg-slate-50 cursor-pointer select-none"
+           :class="aberto ? 'border-b border-slate-100' : ''"
+           @click="if (!$event.target.closest('a')) aberto = !aberto">
+        <div class="flex items-center gap-2 flex-wrap min-w-0">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 flex-shrink-0 transition-transform" :class="aberto ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
           <a href="{% url 'listas:detalhe' lista.pk %}"
              class="font-semibold text-slate-800 hover:text-blue-600 text-sm transition">{{ lista.nome }}</a>
           {% if not lista.ativa %}
@@ -204,43 +216,61 @@
         {% endif %}
       </div>
 
-      <!-- Servidor + Credenciais -->
-      <div class="px-5 py-3 space-y-2 border-b border-slate-100">
-        {% if lista.dns_efetivo and lista.dns_efetivo != '—' %}
-        <div class="flex items-center gap-1.5 text-xs text-slate-500">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/>
-          </svg>
-          <span class="font-mono text-slate-600">{{ lista.dns_efetivo }}</span>
-          <button onclick="copyText('{{ lista.dns_efetivo }}', this)" type="button"
-                  title="Copiar servidor"
-                  class="text-slate-300 hover:text-blue-500 transition">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-          </button>
-        </div>
-        {% endif %}
-        <div class="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2 gap-3">
-          <div class="flex items-center gap-4 text-xs font-mono min-w-0">
-            <span class="text-slate-600 flex items-center gap-1 min-w-0">
-              <span class="text-slate-400 flex-shrink-0">👤</span>
-              <strong class="truncate">{{ lista.usuario }}</strong>
-            </span>
-            <span class="text-slate-600 flex items-center gap-1 min-w-0">
-              <span class="text-slate-400 flex-shrink-0">🔒</span>
-              <strong class="truncate">{{ lista.senha }}</strong>
-            </span>
+      <!-- Resumo quando recolhida -->
+      <div x-show="!aberto" class="px-5 pb-3 -mt-1 bg-slate-50 text-xs text-slate-500 flex flex-wrap gap-x-3 gap-y-0.5"
+           {% if listas|length == 1 %}style="display:none"{% endif %}>
+        <span class="font-mono">{{ lista.usuario }}</span>
+        {% if lista.servidor %}<span>{{ lista.servidor.nome }}</span>{% endif %}
+        {% if lista.acesso_painel and lista.acesso_painel.validade %}<span>Painel vence {{ lista.acesso_painel.validade|date:"d/m/Y" }}</span>{% endif %}
+        {% with prox=lista.proxima_data_vencimento %}{% if prox %}<span>Mensalidade {{ prox|date:"d/m/Y" }}</span>{% endif %}{% endwith %}
+        {% if lista.pagador %}<span>Paga: {{ lista.pagador.nome }}</span>{% endif %}
+      </div>
+
+      <div x-show="aberto" {% if listas|length != 1 %}style="display:none"{% endif %}>
+      <!-- Acesso e playlist -->
+      <div class="px-5 py-3 border-b border-slate-100 space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {% if lista.dns_efetivo and lista.dns_efetivo != '—' %}
+          <div class="bg-slate-50 rounded-lg px-3 py-2 min-w-0">
+            <p class="text-xs text-slate-400">Servidor</p>
+            <div class="flex items-center gap-1.5">
+              <span class="font-mono text-xs text-slate-700 truncate">{{ lista.dns_efetivo }}</span>
+              <button onclick="copyText('{{ lista.dns_efetivo|escapejs }}', this)" type="button" title="Copiar servidor" class="text-slate-400 hover:text-blue-600 transition flex-shrink-0"><svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
+            </div>
           </div>
-          <button onclick="copyText('Usuário: {{ lista.usuario }}\nSenha: {{ lista.senha }}', this)"
-                  type="button" title="Copiar credenciais"
-                  class="flex-shrink-0 flex items-center gap-1 text-xs text-slate-400 hover:text-blue-600 transition">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-            Copiar
-          </button>
+          {% endif %}
+          <div class="bg-slate-50 rounded-lg px-3 py-2 min-w-0">
+            <p class="text-xs text-slate-400">Usuário</p>
+            <div class="flex items-center gap-1.5">
+              <span class="font-mono text-xs font-semibold text-slate-700 truncate">{{ lista.usuario }}</span>
+              <button onclick="copyText('{{ lista.usuario|escapejs }}', this)" type="button" title="Copiar usuário" class="text-slate-400 hover:text-blue-600 transition flex-shrink-0"><svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
+            </div>
+          </div>
+          <div class="bg-slate-50 rounded-lg px-3 py-2 min-w-0">
+            <p class="text-xs text-slate-400">Senha</p>
+            <div class="flex items-center gap-1.5">
+              <span class="font-mono text-xs font-semibold text-slate-700 truncate">{{ lista.senha }}</span>
+              <button onclick="copyText('{{ lista.senha|escapejs }}', this)" type="button" title="Copiar senha" class="text-slate-400 hover:text-blue-600 transition flex-shrink-0"><svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" onclick="copyText('{% if lista.dns_efetivo != '—' %}Servidor: {{ lista.dns_efetivo|escapejs }}\n{% endif %}Usuário: {{ lista.usuario|escapejs }}\nSenha: {{ lista.senha|escapejs }}', this)"
+                  class="text-xs px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg font-medium transition">Copiar acesso</button>
+          <span class="text-xs text-slate-400 ml-1">Playlist:</span>
+          <button type="button" onclick="copiarPlaylist('{% url 'listas:playlist' lista.pk %}?tipo=m3u', this)"
+                  class="text-xs px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition">Copiar M3U</button>
+          {% if lista.tem_link_curto %}
+          <button type="button" onclick="copiarPlaylist('{% url 'listas:playlist' lista.pk %}?tipo=curto', this)"
+                  class="text-xs px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition">Copiar link curto</button>
+          {% endif %}
+          <a href="{% url 'listas:playlist' lista.pk %}?tipo=m3u&baixar=1" target="_blank" rel="noopener noreferrer"
+             class="text-xs px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition">Baixar M3U</a>
         </div>
       </div>
 
-      <!-- Grade de informações -->
-      <div class="px-5 py-3 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 border-b border-slate-100">
+      <!-- Informações -->
+      <div class="px-5 py-3 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 border-b border-slate-100">
         <div>
           <p class="text-xs text-slate-400 mb-0.5">Telas</p>
           <p class="text-sm font-medium text-slate-700">{{ lista.num_telas }}</p>
@@ -248,26 +278,21 @@
         {% with prox=lista.proxima_data_vencimento %}
         {% if prox %}
         <div>
-          <p class="text-xs text-slate-400 mb-0.5">Próx. vencimento</p>
-          <p class="text-sm font-semibold {% if status == 'atrasado' %}text-red-600{% elif status == 'pendente' %}text-yellow-600{% else %}text-slate-700{% endif %}">
-            {{ prox|date:"d/m/Y" }}
-          </p>
+          <p class="text-xs text-slate-400 mb-0.5">Próx. mensalidade</p>
+          <p class="text-sm font-semibold {% if status == 'atrasado' %}text-red-600{% else %}text-slate-700{% endif %}">{{ prox|date:"d/m/Y" }}</p>
         </div>
         {% endif %}
         {% endwith %}
         {% if lista.plano %}
         <div>
-          <p class="text-xs text-slate-400 mb-0.5">Plano</p>
+          <p class="text-xs text-slate-400 mb-0.5">Plano de cobrança</p>
           <p class="text-sm font-medium text-slate-700">{{ lista.plano.nome }}</p>
         </div>
         {% endif %}
         {% if lista.pagador %}
-        <div class="col-span-2">
+        <div>
           <p class="text-xs text-slate-400 mb-0.5">Pagador</p>
-          <p class="text-sm font-medium text-slate-700">
-            {{ lista.pagador.nome }}
-            {% if lista.pagador.whatsapp %}<span class="text-slate-400 font-normal text-xs">({{ lista.pagador.whatsapp }})</span>{% endif %}
-          </p>
+          <p class="text-sm font-medium text-slate-700">{{ lista.pagador.nome }}</p>
         </div>
         {% endif %}
         {% if lista.ultima_atualizacao %}
@@ -277,6 +302,32 @@
         </div>
         {% endif %}
       </div>
+
+      <!-- Painel -->
+      {% if lista.acesso_painel %}
+      <div class="px-5 py-3 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 border-b border-slate-100 bg-slate-50">
+        <div>
+          <p class="text-xs text-slate-400 mb-0.5">Painel</p>
+          <p class="text-sm font-medium text-slate-700">{{ lista.acesso_painel.get_painel_display }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-400 mb-0.5">Validade no painel</p>
+          <p class="text-sm font-medium {% if lista.acesso_painel.lixeira %}text-red-600{% else %}text-slate-700{% endif %}">{% if lista.acesso_painel.lixeira %}Na lixeira{% elif lista.acesso_painel.validade %}{{ lista.acesso_painel.validade|date:"d/m/Y" }}{% else %}—{% endif %}</p>
+        </div>
+        {% if lista.acesso_painel.painel == 'bit' %}
+        <div>
+          <p class="text-xs text-slate-400 mb-0.5">Plano no BIT</p>
+          <p class="text-sm font-medium {% if lista.plano_bit_salvo %}text-slate-700{% else %}text-yellow-700{% endif %}">{% if lista.plano_bit_salvo %}{{ lista.plano_bit_salvo.nome }}{% else %}Não definido{% endif %}</p>
+        </div>
+        {% endif %}
+        {% if lista.acesso_painel.pacote %}
+        <div>
+          <p class="text-xs text-slate-400 mb-0.5">Pacote</p>
+          <p class="text-sm text-slate-700">{{ lista.acesso_painel.pacote }}</p>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
 
       <!-- Histórico de pagamento -->
       {% if lista.historico_pagamento %}
@@ -339,6 +390,10 @@
                 </button>
               </span>
               {% endif %}
+              {% if la.app.formato_lista %}
+              <button type="button" onclick="copiarPlaylist('{% url 'listas:playlist' lista.pk %}?tipo=app&app={{ la.pk }}', this)"
+                      class="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded font-medium transition">Copiar lista do app</button>
+              {% endif %}
               {% if la.device_id %}
               <span class="text-slate-400 flex items-center gap-1">ID: <span class="font-mono text-slate-600">{{ la.device_id }}</span>
                 <button onclick="copyText('{{ la.device_id|escapejs }}', this)" type="button" title="Copiar Device ID"
@@ -369,45 +424,40 @@
       {% endif %}
 
       <!-- Ações -->
-      <div class="px-5 py-3 flex items-center gap-2 flex-wrap">
-        <a href="{% url 'listas:detalhe' lista.pk %}"
-           class="text-xs px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg font-medium transition">
-          Ver detalhes
-        </a>
-        {% if lista.mensalidade_pendente %}
-        <button type="button"
-                onclick="abrirModalPagar('{% url 'financeiro:pagar' lista.mensalidade_pendente.pk %}', '{% url 'clientes:detalhe' cliente.pk %}')"
-                class="text-xs px-2.5 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition">
-          Pagar
-        </button>
-        {% endif %}
-        <a href="{% url 'financeiro:nova' %}?lista={{ lista.pk }}"
-           class="text-xs px-2.5 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-medium transition">
-          + Mensalidade
-        </a>
-        <a href="{% url 'listas:app_adicionar' lista.pk %}"
-           class="text-xs px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-medium transition">
-          + App
-        </a>
-        <a href="{% url 'conferencia:acesso_editar' lista.pk %}?voltar={% url 'clientes:detalhe' cliente.pk %}"
-           class="text-xs px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-medium transition">
-          Alterar no painel
-        </a>
+      <div class="px-5 py-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-xs text-slate-400">Financeiro</span>
+          {% if lista.mensalidade_pendente %}
+          <button type="button"
+                  onclick="abrirModalPagar('{% url 'financeiro:pagar' lista.mensalidade_pendente.pk %}', '{% url 'clientes:detalhe' cliente.pk %}')"
+                  class="text-xs px-2.5 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition">Pagar</button>
+          {% endif %}
+          <a href="{% url 'financeiro:nova' %}?lista={{ lista.pk }}"
+             class="text-xs px-2.5 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-medium transition">+ Mensalidade</a>
+        </div>
         {% if lista.acesso_painel %}
-        <span class="text-xs text-slate-500">{{ lista.acesso_painel.get_painel_display }}{% if lista.acesso_painel.lixeira %} · na lixeira{% elif lista.acesso_painel.validade %} · vence {{ lista.acesso_painel.validade|date:"d/m/Y" }}{% endif %}{% if lista.plano_bit_salvo %} · plano {{ lista.plano_bit_salvo.nome }}{% endif %}{% if lista.acesso_painel.pacote %} · pacote {{ lista.acesso_painel.pacote }}{% endif %}</span>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-xs text-slate-400">Painel</span>
+          <a href="{% url 'conferencia:acesso_editar' lista.pk %}?voltar={% url 'clientes:detalhe' cliente.pk %}"
+             class="text-xs px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition">Alterar usuário ou senha</a>
+        </div>
         {% endif %}
-        <a href="{% url 'listas:editar' lista.pk %}"
-           class="text-xs px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition ml-auto">
-          Editar lista
-        </a>
-        <form method="post" action="{% url 'listas:alternar_ativa' lista.pk %}">
-          {% csrf_token %}
-          <input type="hidden" name="next" value="{% url 'clientes:detalhe' cliente.pk %}" />
-          <button type="submit"
-                  class="text-xs px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg font-medium transition">
-            Inativar
-          </button>
-        </form>
+        <div class="flex flex-wrap items-center gap-2 sm:ml-auto">
+          <span class="text-xs text-slate-400">Lista</span>
+          <a href="{% url 'listas:detalhe' lista.pk %}"
+             class="text-xs px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg font-medium transition">Ver detalhes</a>
+          <a href="{% url 'listas:editar' lista.pk %}"
+             class="text-xs px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition">Editar</a>
+          <a href="{% url 'listas:app_adicionar' lista.pk %}"
+             class="text-xs px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-medium transition">+ App</a>
+          <form method="post" action="{% url 'listas:alternar_ativa' lista.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{% url 'clientes:detalhe' cliente.pk %}" />
+            <button type="submit"
+                    class="text-xs px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg font-medium transition">Inativar</button>
+          </form>
+        </div>
+      </div>
       </div>
 
     </div>
@@ -513,6 +563,28 @@ function copyText(text, btn) {
     btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
     setTimeout(() => { btn.innerHTML = original; }, 1500);
   });
+}
+
+async function copiarPlaylist(url, btn) {
+  const original = btn.textContent;
+  btn.textContent = 'Gerando…';
+  try {
+    const resposta = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    const dados = await resposta.json();
+    if (!resposta.ok) { alert(dados.erro || 'Não foi possível gerar a playlist.'); return; }
+    try {
+      await navigator.clipboard.writeText(dados.texto);
+      btn.textContent = 'Copiado';
+      setTimeout(() => { btn.textContent = original; }, 1500);
+      return;
+    } catch (e) {
+      window.prompt('Copie a playlist:', dados.texto);
+    }
+  } catch (e) {
+    alert('Não foi possível gerar a playlist.');
+  } finally {
+    if (btn.textContent === 'Gerando…') btn.textContent = original;
+  }
 }
 
 function abrirModalPagar(action, nextUrl) {

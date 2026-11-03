@@ -11,6 +11,7 @@ urlpatterns = [
     path('<int:pk>/editar/', views.ListaCanaisUpdateView.as_view(), name='editar'),
     path('<int:pk>/excluir/', views.lista_excluir, name='excluir'),
     path('<int:pk>/alternar-ativa/', views.lista_alternar_ativa, name='alternar_ativa'),
+    path('<int:pk>/playlist/', views.lista_playlist, name='playlist'),
 
     # Apps por lista
     path('<int:lista_pk>/apps/adicionar/', views.lista_app_adicionar, name='app_adicionar'),

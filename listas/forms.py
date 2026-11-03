@@ -100,10 +100,11 @@ class ServidorForm(forms.ModelForm):
 class AppIPTVForm(forms.ModelForm):
     class Meta:
         model = AppIPTV
-        fields = ['nome', 'servidores', 'instrucoes_cadastro', 'instrucoes_edicao', 'notas']
+        fields = ['nome', 'servidores', 'formato_lista', 'instrucoes_cadastro', 'instrucoes_edicao', 'notas']
         widgets = {
             'nome': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'ex: TiviMate, IPTV Smarters'}),
             'servidores': forms.CheckboxSelectMultiple(),
+            'formato_lista': forms.TextInput(attrs={'class': INPUT_CLASS + ' font-mono', 'placeholder': 'xc://{servidor}|{usuario}|{senha}'}),
             'instrucoes_cadastro': forms.Textarea(attrs={
                 'class': TEXTAREA_CLASS, 'rows': 5,
                 'placeholder': 'Ex: Para cadastrar no app:\n1. Abra o app\n2. Clique em "Adicionar lista"\n3. Servidor: {servidor}\n4. Usuário: {usuario}\n5. Senha: {senha}',
