@@ -16,7 +16,6 @@
     <thead>
       <tr class="border-b border-slate-100 bg-slate-50">
         <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Nome</th>
-        <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Endereço</th>
         <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Listas</th>
         <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
         <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Online</th>
@@ -27,12 +26,6 @@
       {% for servidor in servidores %}
       <tr class="hover:bg-slate-50 transition-colors">
         <td class="px-5 py-3.5 font-medium text-slate-800">{{ servidor.nome }}</td>
-        <td class="px-4 py-3.5 text-sm text-slate-600">
-          {% if servidor.endereco %}<span class="font-mono">{{ servidor.endereco }}</span>{% endif %}
-          {% if servidor.painel == 'bit' %}<span class="block text-xs text-slate-400">Vem da API do BIT</span>
-          {% elif servidor.painel == 'knewcms' %}<span class="text-xs text-slate-400">No aplicativo de cada lista (knewcms)</span>
-          {% elif not servidor.endereco %}<span class="text-xs text-slate-300">—</span>{% endif %}
-        </td>
         <td class="px-4 py-3.5 text-center text-slate-600">{{ servidor.listas.count }}</td>
         <td class="px-4 py-3.5 text-center">
           {% if servidor.ativo %}
@@ -66,7 +59,7 @@
       </tr>
       {% empty %}
       <tr>
-        <td colspan="6" class="px-5 py-10 text-center text-slate-400 text-sm">Nenhum servidor cadastrado.</td>
+        <td colspan="5" class="px-5 py-10 text-center text-slate-400 text-sm">Nenhum servidor cadastrado.</td>
       </tr>
       {% endfor %}
     </tbody>

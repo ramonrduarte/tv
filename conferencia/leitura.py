@@ -78,7 +78,7 @@ def painel_do_servidor(servidor):
     nome = servidor.nome.strip().lower()
     if nome.startswith('bit'):
         return 'bit'
-    if nome.startswith(('warez', 'knew', 'ww')):
+    if nome.startswith(('warez', 'knew', 'ww', 'wplay')):
         return 'knewcms'
     return ''
 

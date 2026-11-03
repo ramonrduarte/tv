@@ -192,7 +192,7 @@
     function painel() {
       const nome = (servidor.options[servidor.selectedIndex]?.text || '').trim().toLowerCase();
       if (nome.startsWith('bit')) return 'bit';
-      if (nome.startsWith('warez') || nome.startsWith('knew') || nome.startsWith('ww')) return 'knewcms';
+      if (nome.startsWith('warez') || nome.startsWith('knew') || nome.startsWith('ww') || nome.startsWith('wplay')) return 'knewcms';
       return 'nenhum';
     }
     function atualizar() {

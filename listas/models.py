@@ -58,7 +58,7 @@ class Servidor(models.Model):
         ordering = ['nome']
 
     def __str__(self):
-        return f'{self.nome} ({self.endereco})' if self.endereco else self.nome
+        return self.nome
 
     @property
     def endereco(self):

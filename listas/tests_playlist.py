@@ -103,9 +103,19 @@ class ServidorSemDnsTests(TestCase):
         resposta = self.client.post(reverse('listas:servidor_novo'), {'nome': 'Outro painel', 'ativo': 'on'})
         self.assertEqual(resposta.status_code, 302)
         self.assertEqual(Servidor.objects.get(nome='Outro painel').endereco, '')
-        self.assertContains(self.client.get(reverse('listas:servidores')), 'No aplicativo de cada lista')
 
     def test_cadastro_do_servidor_nao_pede_dns(self):
         resposta = self.client.get(reverse('listas:servidor_novo'))
         self.assertNotIn('dns', resposta.context['form'].fields)
         self.assertNotContains(resposta, 'Endereço (DNS)')
+
+    def test_servidor_aparece_so_pelo_nome(self):
+        from listas.models import Servidor
+        Servidor.objects.create(nome='Bit', dns='http://auth.test:80')
+        self.assertNotContains(self.client.get(reverse('listas:servidores')), 'auth.test')
+        self.assertNotContains(self.client.get(reverse('listas:app_iptv_novo')), 'auth.test')
+
+    def test_wplay_e_servidor_do_knewcms(self):
+        from conferencia.leitura import painel_do_servidor
+        from listas.models import Servidor
+        self.assertEqual(painel_do_servidor(Servidor(nome='WPLAY')), 'knewcms')
