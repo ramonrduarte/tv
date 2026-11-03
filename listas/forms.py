@@ -87,11 +87,10 @@ class ListaAppForm(forms.ModelForm):
 class ServidorForm(forms.ModelForm):
     class Meta:
         model = Servidor
-        fields = ['nome', 'ativo', 'notas', 'dns', 'porta']
+        # O endereço vem do painel (BIT) ou do aplicativo da lista (knewcms).
+        fields = ['nome', 'ativo', 'notas']
         widgets = {
             'nome': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'Nome do servidor'}),
-            'dns': forms.TextInput(attrs={'class': INPUT_CLASS, 'placeholder': 'ex: iptv.exemplo.com'}),
-            'porta': forms.NumberInput(attrs={'class': INPUT_CLASS, 'placeholder': 'ex: 80'}),
             'ativo': forms.CheckboxInput(attrs={'class': 'w-4 h-4 text-blue-600 rounded'}),
             'notas': forms.Textarea(attrs={'class': TEXTAREA_CLASS, 'rows': 3}),
         }

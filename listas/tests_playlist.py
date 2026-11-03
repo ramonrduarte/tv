@@ -104,3 +104,8 @@ class ServidorSemDnsTests(TestCase):
         self.assertEqual(resposta.status_code, 302)
         self.assertEqual(Servidor.objects.get(nome='Outro painel').endereco, '')
         self.assertContains(self.client.get(reverse('listas:servidores')), 'No aplicativo de cada lista')
+
+    def test_cadastro_do_servidor_nao_pede_dns(self):
+        resposta = self.client.get(reverse('listas:servidor_novo'))
+        self.assertNotIn('dns', resposta.context['form'].fields)
+        self.assertNotContains(resposta, 'Endereço (DNS)')

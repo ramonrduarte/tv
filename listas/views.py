@@ -356,7 +356,6 @@ class ServidorCreateView(LoginRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['titulo'] = 'Novo Servidor'
-        ctx['servidor'] = None
         ctx['btn_label'] = 'Cadastrar'
         return ctx
 
