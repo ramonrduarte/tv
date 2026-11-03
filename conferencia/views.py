@@ -180,8 +180,12 @@ def renovar_conferir(request):
             creditos = escrita.bit_creditos()
         except LeituraInvalida as e:
             erro_bit = str(e)
+    for i in itens:
+        if i['acesso'].painel == 'bit':
+            i['plano_sugerido'] = operacoes.plano_sugerido(i['lista'], i['acesso'], planos)
     lote = uuid.uuid4().hex
     request.session['lote_renovacao'] = lote
+    request.session['planos_bit'] = dict(planos)
     return render(request, 'conferencia/renovar_conferir.html', {
         'itens': itens,
         'meses': meses,
@@ -190,7 +194,6 @@ def renovar_conferir(request):
         'qtd_bit': sum(1 for i in itens if i['acesso'].painel == 'bit'),
         'tem_bit': tem_bit,
         'planos': planos,
-        'plano_salvo': ConfiguracaoConferencia.atual().plano_bit,
         'creditos': creditos,
         'erro_bit': erro_bit,
         'voltar': voltar,
@@ -211,12 +214,11 @@ def renovar_executar(request):
     if not meses or not ids:
         messages.error(request, 'Lote inválido.')
         return redirect(voltar)
-    plano = request.POST.get('plano_bit', '').strip()
-    if plano:
-        configuracao = ConfiguracaoConferencia.atual()
-        configuracao.plano_bit = plano
-        configuracao.save()
-    resultado = operacoes.executar_renovacao(ids, meses, plano, request.user)
+    nomes = request.session.pop('planos_bit', {}) or {}
+    planos = {i: request.POST.get(f'plano_{i}', '').strip() for i in ids}
+    # Só aceita planos que o BIT ofereceu na conferência.
+    planos = {i: p for i, p in planos.items() if p and p in nomes}
+    resultado = operacoes.executar_renovacao(ids, meses, planos, request.user, nomes)
     return render(request, 'conferencia/renovar_resultado.html', {'resultado': resultado, 'meses': meses, 'voltar': voltar})
 
 

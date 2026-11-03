@@ -10,7 +10,7 @@ from listas.models import ListaCanais
 
 from . import escrita
 from .leitura import PAINEIS_API, LeituraInvalida, SemResposta, assinar_senha, painel_do_servidor, tem_token
-from .models import AcessoPainel, OperacaoPainel, VinculoPainel
+from .models import AcessoPainel, OperacaoPainel, PlanoRenovacaoLista, VinculoPainel
 
 LIMITE_LOTE = 30  # O BIT aceita 30 alterações por minuto.
 JANELA_REPETICAO = timedelta(minutes=15)
@@ -95,7 +95,18 @@ def _recente(lista):
     ).exists()
 
 
-def executar_renovacao(lista_ids, meses, plano_bit, usuario):
+def plano_sugerido(lista, acesso, planos):
+    """Plano salvo para a lista ou, na primeira vez, o plano com o nome do pacote dela no BIT."""
+    salvo = PlanoRenovacaoLista.objects.filter(lista=lista).first()
+    validos = dict(planos)
+    if salvo and salvo.plano_bit in validos:
+        return salvo.plano_bit
+    pacote = (acesso.pacote or '').strip().lower()
+    return next((valor for valor, nome in planos if pacote and nome.strip().lower() == pacote), '')
+
+
+def executar_renovacao(lista_ids, meses, planos_bit, usuario, nomes_planos=None):
+    """planos_bit: {id da lista: plano}. O knewcms não usa plano."""
     listas = list(ListaCanais.objects.filter(pk__in=lista_ids, ativa=True).select_related('cliente', 'servidor'))
     acessos = acessos_das_listas(listas)
     resultado = {'itens': [], 'creditos_bit': None}
@@ -112,14 +123,19 @@ def executar_renovacao(lista_ids, meses, plano_bit, usuario):
         if _recente(lista):
             item['motivo'] = 'Já foi renovada há poucos minutos. Confira a validade antes de renovar de novo.'
             continue
+        plano = planos_bit.get(lista.pk, '') if acesso.painel == 'bit' else ''
+        nome_plano = (nomes_planos or {}).get(plano, plano)
+        if plano:
+            PlanoRenovacaoLista.objects.update_or_create(lista=lista, defaults={'plano_bit': plano, 'nome': nome_plano})
+        periodo = f'{meses} mês' if meses == 1 else f'{meses} meses'
         operacao = OperacaoPainel.objects.create(
             lista=lista, painel=acesso.painel, usuario_painel=acesso.usuario, tipo='renovacao',
-            detalhe=f'{meses} mês' if meses == 1 else f'{meses} meses',
+            detalhe=f'{periodo} · {nome_plano}' if plano else periodo,
             validade_antes=acesso.validade, feito_por=usuario,
         )
         item['operacao'] = operacao
         try:
-            validade, creditos = escrita.renovar(acesso, meses, plano_bit)
+            validade, creditos = escrita.renovar(acesso, meses, plano)
         except SemResposta as e:
             operacao.status, operacao.erro = 'incerta', str(e)[:300]
         except LeituraInvalida as e:

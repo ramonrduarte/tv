@@ -354,6 +354,20 @@
       </div>
       {% endif %}
 
+      {% if lista.historico_painel %}
+      <div class="px-5 py-2.5 border-t border-slate-100">
+        <p class="text-xs font-semibold text-slate-500 mb-1">Histórico</p>
+        <ul class="space-y-0.5">
+          {% for op in lista.historico_painel %}
+          <li class="text-xs text-slate-600">
+            {{ op.criado_em|date:"d/m/Y H:i" }} · {{ op.get_tipo_display }}{% if op.painel %} no {{ op.get_painel_display }}{% endif %}{% if op.detalhe %} · {{ op.detalhe }}{% endif %}{% if op.validade_depois %} · nova validade {{ op.validade_depois|date:"d/m/Y" }}{% endif %}
+            {% if op.status != 'ok' %}<span class="ml-1 {% if op.status == 'falha' %}text-red-600{% else %}text-yellow-700{% endif %}">({{ op.get_status_display }})</span>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
       <!-- Ações -->
       <div class="px-5 py-3 flex items-center gap-2 flex-wrap">
         <a href="{% url 'listas:detalhe' lista.pk %}"

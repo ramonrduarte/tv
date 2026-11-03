@@ -131,6 +131,21 @@ class ListaCanaisUpdateView(LoginRequiredMixin, UpdateView):
             self._acesso = acesso if acesso and not acesso.lixeira and tem_token(acesso.painel) else None
         return self._acesso
 
+    def _registrar_alteracao(self, form, lista):
+        """Guarda no histórico quando o usuário ou a senha mudam no cadastro. A senha não é gravada."""
+        partes = []
+        if 'usuario' in form.changed_data:
+            partes.append(f"Usuário: {form.initial.get('usuario', '')} → {lista.usuario}")
+        if 'senha' in form.changed_data:
+            partes.append('Senha alterada')
+        if partes:
+            from conferencia.models import OperacaoPainel
+            acesso = self._acesso_no_painel()
+            OperacaoPainel.objects.create(
+                lista=lista, painel=acesso.painel if acesso else '', usuario_painel=lista.usuario,
+                tipo='cadastro', detalhe=' · '.join(partes)[:200], status='ok', feito_por=self.request.user,
+            )
+
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         if self._acesso_no_painel():
@@ -152,6 +167,7 @@ class ListaCanaisUpdateView(LoginRequiredMixin, UpdateView):
         if lista.plano:
             lista.valor_mensalidade = lista.plano.preco_por_tela * lista.num_telas
         lista.save()
+        self._registrar_alteracao(form, lista)
         messages.success(self.request, 'Lista atualizada com sucesso!')
         return redirect(self.get_success_url())
 

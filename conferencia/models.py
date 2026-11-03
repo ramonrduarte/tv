@@ -19,6 +19,7 @@ class AcessoPainel(models.Model):
     telas = models.PositiveSmallIntegerField('Telas', null=True, blank=True)
     whatsapp = models.CharField('WhatsApp', max_length=40, blank=True)
     observacao = models.TextField('Observação', blank=True)
+    pacote = models.CharField('Pacote no painel', max_length=200, blank=True)
     lido_em = models.DateTimeField('Lido em', auto_now=True)
 
     class Meta:
@@ -117,6 +118,7 @@ class OperacaoPainel(models.Model):
         ('senha', 'Troca de senha'),
         ('usuario', 'Troca de usuário'),
         ('copia', 'Senha trazida do painel'),
+        ('cadastro', 'Alteração no cadastro'),
     ]
     STATUS_CHOICES = [
         ('pendente', 'Enviando'),
@@ -129,7 +131,7 @@ class OperacaoPainel(models.Model):
         'listas.ListaCanais', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='operacoes_painel', verbose_name='Lista',
     )
-    painel = models.CharField('Painel', max_length=20, choices=AcessoPainel.PAINEL_CHOICES)
+    painel = models.CharField('Painel', max_length=20, choices=AcessoPainel.PAINEL_CHOICES, blank=True)
     usuario_painel = models.CharField('Usuário no painel', max_length=200)
     tipo = models.CharField('Tipo', max_length=20, choices=TIPO_CHOICES)
     detalhe = models.CharField('Detalhe', max_length=200, blank=True)
@@ -147,3 +149,21 @@ class OperacaoPainel(models.Model):
 
     def __str__(self):
         return f'{self.get_tipo_display()} {self.usuario_painel} ({self.get_status_display()})'
+
+
+class PlanoRenovacaoLista(models.Model):
+    """Plano do BIT usado para renovar cada lista. Cada lista tem o seu, para não misturar custos."""
+    lista = models.OneToOneField(
+        'listas.ListaCanais', on_delete=models.CASCADE,
+        related_name='plano_renovacao', verbose_name='Lista',
+    )
+    plano_bit = models.CharField('Plano do BIT', max_length=60)
+    nome = models.CharField('Nome do plano', max_length=200, blank=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Plano de renovação da lista'
+        verbose_name_plural = 'Planos de renovação das listas'
+
+    def __str__(self):
+        return f'{self.lista} → {self.nome or self.plano_bit}'

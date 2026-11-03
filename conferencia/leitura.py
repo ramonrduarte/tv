@@ -158,6 +158,7 @@ def _acesso_knewcms(item):
         'telas': item.get('max_connections'),
         'whatsapp': item.get('whatsapp') or '',
         'observacao': item.get('notes') or '',
+        'pacote': str((item.get('plan') or {}).get('name') or '')[:200],
     }
 
 
@@ -213,6 +214,7 @@ def _acesso_bit(item, teste):
         'telas': item.get('screens'),
         'whatsapp': str(item.get('whatsapp') or '')[:40],
         'observacao': item.get('notes') or '',
+        'pacote': str((item.get('package') or {}).get('title') or '')[:200],
     }
 
 

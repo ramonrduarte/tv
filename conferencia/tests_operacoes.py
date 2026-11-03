@@ -12,7 +12,7 @@ from listas.models import AppIPTV, ListaApp, ListaCanais, Servidor
 
 from . import escrita
 from .leitura import LeituraInvalida, SemResposta, assinar_senha, salvar_leitura
-from .models import AcessoPainel, ConfiguracaoConferencia, OperacaoPainel
+from .models import AcessoPainel, ConfiguracaoConferencia, OperacaoPainel, PlanoRenovacaoLista
 from .operacoes import candidatas, executar_renovacao
 
 TOKENS = {'WWPANEL_API_TOKEN': 'k', 'BIT_API_TOKEN': 'bit_x'}
@@ -55,7 +55,7 @@ class RenovacaoTests(Base):
         validade = self.nova_validade()
         with mock.patch.object(escrita, '_knewcms', return_value={'exp_date': validade.isoformat()}) as knew, \
              mock.patch.object(escrita, '_bit', return_value={'line': {'expiresAt': validade.isoformat()}, 'credits': 41}) as bit:
-            resultado = executar_renovacao([self.l_knew.pk, self.l_bit.pk], 1, 'plano-1', self.user)
+            resultado = executar_renovacao([self.l_knew.pk, self.l_bit.pk], 1, {self.l_bit.pk: 'plano-1'}, self.user)
         knew.assert_called_once_with('PATCH', '/lines/v2/extend/11', corpo={'months': 1})
         bit.assert_called_once_with('POST', '/lines/b1/renew', corpo={'planId': 'plano-1', 'periodInMonths': 1})
         self.assertEqual(resultado['creditos_bit'], 41)
@@ -64,35 +64,35 @@ class RenovacaoTests(Base):
 
     def test_nao_renova_de_novo_logo_depois(self):
         with mock.patch.object(escrita, '_knewcms', return_value={'exp_date': None}) as knew:
-            executar_renovacao([self.l_knew.pk], 1, '', self.user)
-            resultado = executar_renovacao([self.l_knew.pk], 1, '', self.user)
+            executar_renovacao([self.l_knew.pk], 1, {}, self.user)
+            resultado = executar_renovacao([self.l_knew.pk], 1, {}, self.user)
         self.assertEqual(knew.call_count, 1)
         self.assertIn('há poucos minutos', resultado['itens'][0]['motivo'])
 
     def test_sem_resposta_fica_incerta_e_bloqueia_nova_tentativa(self):
         with mock.patch.object(escrita, '_knewcms', side_effect=SemResposta('caiu')) as knew:
-            executar_renovacao([self.l_knew.pk], 1, '', self.user)
-            executar_renovacao([self.l_knew.pk], 1, '', self.user)
+            executar_renovacao([self.l_knew.pk], 1, {}, self.user)
+            executar_renovacao([self.l_knew.pk], 1, {}, self.user)
         self.assertEqual(knew.call_count, 1)
         self.assertEqual(OperacaoPainel.objects.get().status, 'incerta')
 
     def test_recusa_do_painel_fica_como_falha_e_permite_tentar_de_novo(self):
         with mock.patch.object(escrita, '_knewcms', side_effect=LeituraInvalida('402 sem créditos')) as knew:
-            executar_renovacao([self.l_knew.pk], 1, '', self.user)
-            executar_renovacao([self.l_knew.pk], 1, '', self.user)
+            executar_renovacao([self.l_knew.pk], 1, {}, self.user)
+            executar_renovacao([self.l_knew.pk], 1, {}, self.user)
         self.assertEqual(knew.call_count, 2)
         self.assertEqual(set(OperacaoPainel.objects.values_list('status', flat=True)), {'falha'})
 
     def test_bit_sem_plano_nao_e_enviado(self):
         with mock.patch.object(escrita, '_bit') as bit:
-            executar_renovacao([self.l_bit.pk], 1, '', self.user)
+            executar_renovacao([self.l_bit.pk], 1, {}, self.user)
         bit.assert_not_called()
         self.assertEqual(OperacaoPainel.objects.get().status, 'falha')
 
     @override_settings(BIT_API_TOKEN='')
     def test_sem_token_nao_envia(self):
         with mock.patch.object(escrita, '_bit') as bit:
-            resultado = executar_renovacao([self.l_bit.pk], 1, 'p', self.user)
+            resultado = executar_renovacao([self.l_bit.pk], 1, {self.l_bit.pk: 'p'}, self.user)
         bit.assert_not_called()
         self.assertIn('BIT_API_TOKEN', resultado['itens'][0]['motivo'])
         self.assertFalse(OperacaoPainel.objects.exists())
@@ -105,7 +105,7 @@ class TelasRenovacaoTests(Base):
         self.assertContains(resposta, 'Saldo atual: 50 créditos')
         self.assertContains(resposta, 'Mensal')
         lote = resposta.context['lote']
-        dados = {'lote': lote, 'meses': '1', 'lista': [self.l_knew.pk, self.l_bit.pk], 'plano_bit': 'p1'}
+        dados = {'lote': lote, 'meses': '1', 'lista': [self.l_knew.pk, self.l_bit.pk], f'plano_{self.l_bit.pk}': 'p1'}
         with mock.patch.object(escrita, '_knewcms', return_value={}) as knew, \
              mock.patch.object(escrita, '_bit', return_value={'line': {}, 'credits': 49}) as bit:
             resposta = self.client.post(reverse('conferencia:renovar_executar'), dados)
@@ -113,7 +113,7 @@ class TelasRenovacaoTests(Base):
             segunda = self.client.post(reverse('conferencia:renovar_executar'), dados)
         self.assertEqual((knew.call_count, bit.call_count), (1, 1))
         self.assertRedirects(segunda, reverse('conferencia:renovar'))
-        self.assertEqual(ConfiguracaoConferencia.atual().plano_bit, 'p1')
+        self.assertEqual(PlanoRenovacaoLista.objects.get(lista=self.l_bit).plano_bit, 'p1')
 
     def test_meses_invalidos_e_limite(self):
         resposta = self.client.post(reverse('conferencia:renovar_conferir'), {'lista': [self.l_knew.pk], 'meses': '5'})

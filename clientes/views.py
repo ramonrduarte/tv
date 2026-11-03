@@ -448,6 +448,7 @@ def cliente_detalhe(request, pk):
     acessos = acessos_das_listas(todas_listas)
     for lista in todas_listas:
         lista.acesso_painel = acessos.get(lista.pk)
+        lista.historico_painel = list(lista.operacoes_painel.all()[:4])
 
     ativas = [l for l in todas_listas if l.ativa]
     inativas = [l for l in todas_listas if not l.ativa]
