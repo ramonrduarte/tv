@@ -221,10 +221,29 @@ def lista_detalhe(request, pk):
     )
     apps = lista.apps.select_related('app').all()
     mensalidades = lista.mensalidades.order_by('-vencimento')[:12]
+
+    from conferencia import escrita
+    from conferencia.leitura import LeituraInvalida, tem_token
+    from conferencia.models import OperacaoPainel, PlanoRenovacaoLista
+    from conferencia.operacoes import acessos_das_listas
+    acesso = acessos_das_listas([lista]).get(lista.pk)
+    links, erro_links = None, ''
+    # Os links são lidos na hora, só quando pedidos, e não ficam salvos.
+    if request.GET.get('links') and acesso and acesso.painel == 'bit' and tem_token('bit'):
+        try:
+            links = escrita.links_bit(acesso.usuario)
+        except LeituraInvalida as e:
+            erro_links = str(e)
     return render(request, 'listas/detalhe.html', {
         'lista': lista,
         'apps': apps,
         'mensalidades': mensalidades,
+        'acesso': acesso,
+        'plano_bit': PlanoRenovacaoLista.objects.filter(lista=lista).first(),
+        'pode_links': bool(acesso and acesso.painel == 'bit' and tem_token('bit')),
+        'links': links,
+        'erro_links': erro_links,
+        'historico': OperacaoPainel.objects.filter(lista=lista).select_related('lista__cliente')[:15],
     })
 
 

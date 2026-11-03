@@ -91,3 +91,9 @@ def senha_atual(acesso):
     if not senha:
         raise LeituraInvalida('O painel não devolveu a senha deste acesso.')
     return senha
+
+
+def links_bit(usuario):
+    """Servidor, M3U completa e link curto da lista. Só leitura."""
+    dados = _bit('GET', f'/lines/{_q(usuario)}/links')
+    return {chave: dados.get(chave) or '' for chave in ('server', 'username', 'm3u', 'short')}
