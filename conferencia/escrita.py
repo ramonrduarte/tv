@@ -97,3 +97,18 @@ def links_bit(usuario):
     """Servidor, M3U completa e link curto da lista. Só leitura."""
     dados = _bit('GET', f'/lines/{_q(usuario)}/links')
     return {chave: dados.get(chave) or '' for chave in ('server', 'username', 'm3u', 'short')}
+
+
+def bit_pacotes():
+    dados = _bit('GET', '/packages')
+    itens = dados.get('data', []) if isinstance(dados, dict) else dados
+    return [(str(p['id']), str(p.get('title') or p['id'])) for p in itens or [] if isinstance(p, dict) and p.get('id')]
+
+
+# O knewcms tem pacotes fixos, listados na documentação da API (ENUM_PLANS).
+KNEWCMS_PACOTES = [
+    ('2', 'Essencial 2 IPTV + 1 P2P'),
+    ('5', 'Premium 1 IPTV + 2 Nexus'),
+    ('10', 'Whot'),
+    ('11', 'Ultra 1 Krator+'),
+]

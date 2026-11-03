@@ -11,7 +11,7 @@ from listas.models import ListaCanais
 
 from . import escrita
 from .leitura import PAINEIS_API, LeituraInvalida, SemResposta, assinar_senha, painel_do_servidor, tem_token
-from .models import AcessoPainel, OperacaoPainel, PlanoRenovacaoLista, VinculoPainel
+from .models import AcessoPainel, OperacaoPainel, PacoteLista, PlanoRenovacaoLista, VinculoPainel
 
 LIMITE_LOTE = 30  # O BIT aceita 30 alterações por minuto.
 JANELA_REPETICAO = timedelta(minutes=15)
@@ -110,11 +110,9 @@ def _plano_pelo_pacote(acesso, exceto_lista=None):
 
 
 def plano_da_lista(lista, acesso):
-    """(nome do plano, origem). No knewcms vem do painel; no BIT, do que foi escolhido ou sugerido."""
-    if not acesso:
+    """(nome do plano de renovação do BIT, origem). O knewcms não usa plano para renovar."""
+    if not acesso or acesso.painel != 'bit':
         return '', ''
-    if acesso.painel == 'knewcms':
-        return acesso.plano, 'painel' if acesso.plano else ''
     salvo = PlanoRenovacaoLista.objects.filter(lista=lista).first()
     if salvo:
         return salvo.nome or salvo.plano_bit, 'escolhido'
@@ -283,3 +281,44 @@ def salvar_plano_da_lista(lista, plano_bit, planos):
     PlanoRenovacaoLista.objects.update_or_create(
         lista=lista, defaults={'plano_bit': plano_bit, 'nome': dict(planos).get(plano_bit, plano_bit)},
     )
+
+
+def pacotes_do_painel(painel):
+    """Pacotes que o painel oferece: no BIT pela API (1 hora em cache), no knewcms a lista fixa."""
+    if painel == 'knewcms':
+        conhecidos = list(escrita.KNEWCMS_PACOTES)
+        nomes = {n for _, n in conhecidos}
+        extras = sorted({a.pacote for a in AcessoPainel.objects.filter(painel='knewcms').exclude(pacote='')} - nomes)
+        return conhecidos + [(n, n) for n in extras]
+    if painel != 'bit':
+        return []
+    pacotes = cache.get('pacotes_bit')
+    if pacotes is None:
+        pacotes = []
+        if tem_token('bit'):
+            try:
+                pacotes = escrita.bit_pacotes()
+            except LeituraInvalida:
+                pacotes = []
+        if pacotes:
+            cache.set('pacotes_bit', pacotes, 3600)
+    if not pacotes:
+        nomes = {a.pacote for a in AcessoPainel.objects.filter(painel='bit').exclude(pacote='')}
+        nomes |= set(PacoteLista.objects.filter(painel='bit').values_list('nome', flat=True))
+        pacotes = [(n, n) for n in sorted(nomes)]
+    return pacotes
+
+
+def pacote_da_lista(lista, acesso):
+    """(pacote do cadastro, pacote no painel). O cadastro vale quando existe; senão o do painel."""
+    salvo = PacoteLista.objects.filter(lista=lista).first()
+    no_painel = acesso.pacote if acesso else ''
+    return (salvo.nome if salvo else no_painel), no_painel
+
+
+def salvar_pacote_da_lista(lista, painel, pacote_id, pacotes):
+    if not painel or not pacote_id:
+        PacoteLista.objects.filter(lista=lista).delete()
+        return
+    nome = dict(pacotes).get(pacote_id, pacote_id)
+    PacoteLista.objects.update_or_create(lista=lista, defaults={'painel': painel, 'pacote_id': pacote_id, 'nome': nome})

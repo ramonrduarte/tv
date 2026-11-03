@@ -316,16 +316,11 @@
           <p class="text-xs text-slate-400 mb-0.5">Validade no painel</p>
           <p class="text-sm font-medium {% if lista.acesso_painel.lixeira %}text-red-600{% else %}text-slate-700{% endif %}">{% if lista.acesso_painel.lixeira %}Na lixeira{% elif lista.acesso_painel.validade %}{{ lista.acesso_painel.validade|date:"d/m/Y" }}{% else %}—{% endif %}</p>
         </div>
-        <div>
-          <p class="text-xs text-slate-400 mb-0.5">Plano no painel</p>
-          <p class="text-sm font-medium {% if lista.plano_painel %}text-slate-700{% else %}text-yellow-700{% endif %}">{% if lista.plano_painel %}{{ lista.plano_painel }}{% if lista.plano_origem == 'sugerido' %} <span class="text-xs font-normal text-slate-400">(sugerido pelo pacote)</span>{% endif %}{% else %}Não definido{% endif %}</p>
-        </div>
-        {% if lista.acesso_painel.painel == 'bit' and lista.acesso_painel.pacote %}
-        <div>
+        <div class="col-span-2">
           <p class="text-xs text-slate-400 mb-0.5">Pacote</p>
-          <p class="text-sm text-slate-700">{{ lista.acesso_painel.pacote }}</p>
+          <p class="text-sm font-medium {% if lista.pacote_cadastro %}text-slate-700{% else %}text-yellow-700{% endif %}">{{ lista.pacote_cadastro|default:"Não definido" }}</p>
+          {% if lista.pacote_no_painel and lista.pacote_cadastro|lower != lista.pacote_no_painel|lower %}<p class="text-xs text-yellow-700">No painel: {{ lista.pacote_no_painel }}</p>{% endif %}
         </div>
-        {% endif %}
       </div>
       {% endif %}
 

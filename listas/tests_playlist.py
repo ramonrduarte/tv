@@ -80,7 +80,7 @@ class PlaylistTests(Base):
         ListaApp.objects.create(lista=self.l_bit, app=app)
         resposta = self.client.get(reverse('clientes:detalhe', args=[self.l_bit.cliente_id]))
         for texto in ('Copiar acesso', 'Copiar M3U', 'Copiar link curto', 'Baixar M3U', 'Copiar lista do app',
-                      'Validade no painel', 'Plano no painel', 'Alterar usuário ou senha', 'Financeiro'):
+                      'Validade no painel', 'Pacote', 'Alterar usuário ou senha', 'Financeiro'):
             self.assertContains(resposta, texto)
 
     def test_formulario_do_app_tem_modelo_de_lista(self):

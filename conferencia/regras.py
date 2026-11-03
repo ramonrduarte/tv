@@ -17,7 +17,7 @@ GRUPOS = [
     ('fora_paineis', 'Ativas no sistema, fora dos painéis', 'Podem ter sido excluídas ou estar com o login errado.', 'red'),
     ('lixeira', 'Na lixeira do painel', 'O acesso foi excluído, mas a lista continua ativa no sistema.', 'red'),
     ('vencida', 'Vencidas no painel', 'A lista está ativa no sistema, mas o acesso já venceu.', 'yellow'),
-    ('dados', 'Dados diferentes', 'Login, senha, telas, situação, teste, servidor ou WhatsApp não batem.', 'blue'),
+    ('dados', 'Dados diferentes', 'Login, senha, pacote, telas, situação, teste, servidor ou WhatsApp não batem.', 'blue'),
     ('inativa', 'Inativas no sistema, ativas no painel', 'O acesso continua liberado no painel.', 'yellow'),
     ('repetido', 'Login repetido', 'O mesmo login aparece em mais de uma lista ativa.', 'blue'),
     ('fora_sistema', 'Nos painéis, fora do sistema', 'Acessos sem lista vinculada. Se for de uma lista existente, vincule para ver o que mudou.', 'yellow'),
@@ -85,6 +85,9 @@ def _comparar_dados(lista, acesso, painel, vinculo):
         achar('servidor', f'O sistema indica {lista.servidor.nome}, mas o acesso está neste painel.')
     if not acesso.ativo:
         achar('bloqueada', 'Bloqueada no painel, ativa no sistema.')
+    cadastrado = getattr(lista, 'pacote_painel', None) if hasattr(lista, 'pacote_painel') else None
+    if cadastrado and acesso.pacote and cadastrado.nome.strip().lower() != acesso.pacote.strip().lower():
+        achar('pacote', f'Pacote no painel: {acesso.pacote} · no cadastro: {cadastrado.nome}.', acesso.pacote.lower())
     if acesso.senha_hash and acesso.senha_hash != assinar_senha(lista.senha):
         apps = _apps(lista)
         complemento = f' Se trocar, revise também: {apps}.' if apps else ''
@@ -126,7 +129,7 @@ def calcular_divergencias():
 
     listas = list(
         ListaCanais.objects.select_related('cliente', 'servidor')
-        .prefetch_related('apps__app').order_by('cliente__nome', 'nome')
+        .select_related('pacote_painel').prefetch_related('apps__app').order_by('cliente__nome', 'nome')
     )
     achados = []
     usados = set()

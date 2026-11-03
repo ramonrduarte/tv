@@ -64,26 +64,19 @@
           {{ form.num_telas }}
         </div>
 
-        <div class="sm:col-span-2 border border-slate-200 rounded-lg p-4 space-y-2">
-          <p class="text-sm font-medium text-slate-700">No painel{% if acesso_painel %} {{ acesso_painel.get_painel_display }}{% endif %}</p>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              {% if form.plano_bit %}
-              <label for="{{ form.plano_bit.id_for_label }}" class="block text-xs font-medium text-slate-600 mb-1">Plano no painel (usado na renovação)</label>
-              {{ form.plano_bit }}
-              {% else %}
-              <p class="block text-xs font-medium text-slate-600 mb-1">Plano no painel</p>
-              <p class="text-sm text-slate-700 py-2">{{ acesso_painel.plano|default:"Vem da leitura do painel" }}</p>
-              {% endif %}
-            </div>
-            {% if not acesso_painel or acesso_painel.painel == 'bit' %}
-            <div>
-              <p class="block text-xs font-medium text-slate-600 mb-1">Pacote no painel</p>
-              <p class="text-sm text-slate-700 py-2">{% if acesso_painel and acesso_painel.pacote %}{{ acesso_painel.pacote }}{% else %}<span class="text-slate-400">Vem da leitura do painel</span>{% endif %}</p>
-            </div>
-            {% endif %}
+        <div class="sm:col-span-2 border border-slate-200 rounded-lg p-4 space-y-2" id="bloco-pacote">
+          <p class="text-sm font-medium text-slate-700">Pacote no painel</p>
+          <div data-pacote-bloco="bit" class="hidden">
+            <label for="{{ form.pacote_bit.id_for_label }}" class="block text-xs font-medium text-slate-600 mb-1">Pacote do BIT</label>
+            {{ form.pacote_bit }}
           </div>
-          <p class="text-xs text-slate-400">{% if form.plano_bit %}No BIT, escolha o plano usado na renovação; listas com o mesmo pacote já vêm sugeridas. No knewcms o plano vem do próprio painel.{% else %}O plano vem do próprio painel e é atualizado a cada leitura.{% endif %}</p>
+          <div data-pacote-bloco="knewcms" class="hidden">
+            <label for="{{ form.pacote_knewcms.id_for_label }}" class="block text-xs font-medium text-slate-600 mb-1">Pacote do knewcms</label>
+            {{ form.pacote_knewcms }}
+          </div>
+          <p data-pacote-bloco="nenhum" class="text-sm text-slate-500">Escolha um servidor do BIT ou do knewcms para ver os pacotes.</p>
+          {% if acesso_painel and acesso_painel.pacote %}<p class="text-xs text-slate-500">No painel hoje: {{ acesso_painel.pacote }}</p>{% endif %}
+          <p class="text-xs text-slate-400">As opções vêm do painel do servidor. Mudar aqui registra no cadastro e não altera o painel.</p>
         </div>
 
         <!-- Preview financeiro pelo plano -->
@@ -188,4 +181,26 @@
     </form>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // Mostra só os pacotes do painel do servidor escolhido.
+  (function () {
+    const servidor = document.getElementById('id_servidor');
+    if (!servidor) return;
+    function painel() {
+      const nome = (servidor.options[servidor.selectedIndex]?.text || '').trim().toLowerCase();
+      if (nome.startsWith('bit')) return 'bit';
+      if (nome.startsWith('warez') || nome.startsWith('knew') || nome.startsWith('ww')) return 'knewcms';
+      return 'nenhum';
+    }
+    function atualizar() {
+      const atual = painel();
+      document.querySelectorAll('[data-pacote-bloco]').forEach(el => el.classList.toggle('hidden', el.dataset.pacoteBloco !== atual));
+    }
+    servidor.addEventListener('change', atualizar);
+    atualizar();
+  })();
+</script>
 {% endblock %}

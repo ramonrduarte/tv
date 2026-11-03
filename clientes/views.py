@@ -447,12 +447,12 @@ def cliente_detalhe(request, pk):
         ).order_by('-vencimento').first()
 
     from conferencia.leitura import painel_do_servidor, tem_token
-    from conferencia.operacoes import acessos_das_listas, plano_da_lista
+    from conferencia.operacoes import acessos_das_listas, pacote_da_lista
     acessos = acessos_das_listas(todas_listas)
     for lista in todas_listas:
         lista.acesso_painel = acessos.get(lista.pk)
         lista.historico_painel = list(lista.operacoes_painel.all()[:4])
-        lista.plano_painel, lista.plano_origem = plano_da_lista(lista, lista.acesso_painel)
+        lista.pacote_cadastro, lista.pacote_no_painel = pacote_da_lista(lista, lista.acesso_painel)
         lista.tem_link_curto = bool(lista.acesso_painel and lista.acesso_painel.painel == 'bit' and tem_token('bit'))
         lista.usa_m3u = (lista.acesso_painel.painel if lista.acesso_painel else painel_do_servidor(lista.servidor)) != 'knewcms'
 

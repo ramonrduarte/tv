@@ -19,7 +19,6 @@ class AcessoPainel(models.Model):
     telas = models.PositiveSmallIntegerField('Telas', null=True, blank=True)
     whatsapp = models.CharField('WhatsApp', max_length=40, blank=True)
     observacao = models.TextField('Observação', blank=True)
-    plano = models.CharField('Plano no painel', max_length=200, blank=True)
     pacote = models.CharField('Pacote no painel', max_length=200, blank=True)
     lido_em = models.DateTimeField('Lido em', auto_now=True)
 
@@ -169,3 +168,22 @@ class PlanoRenovacaoLista(models.Model):
 
     def __str__(self):
         return f'{self.lista} → {self.nome or self.plano_bit}'
+
+
+class PacoteLista(models.Model):
+    """Pacote de TV registrado no cadastro da lista, entre os pacotes do painel do servidor."""
+    lista = models.OneToOneField(
+        'listas.ListaCanais', on_delete=models.CASCADE,
+        related_name='pacote_painel', verbose_name='Lista',
+    )
+    painel = models.CharField('Painel', max_length=20, choices=AcessoPainel.PAINEL_CHOICES)
+    pacote_id = models.CharField('ID do pacote no painel', max_length=60, blank=True)
+    nome = models.CharField('Pacote', max_length=200)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Pacote da lista'
+        verbose_name_plural = 'Pacotes das listas'
+
+    def __str__(self):
+        return f'{self.lista} → {self.nome}'

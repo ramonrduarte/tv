@@ -67,52 +67,54 @@ def _planos_json():
     return json.dumps(dados)
 
 
-class PlanoBitMixin:
-    """Plano do BIT usado na renovação, escolhido na própria lista. Separado do plano de cobrança."""
-
-    def _planos_bit(self):
-        if not hasattr(self, '_planos_cache'):
-            from conferencia.operacoes import planos_bit_disponiveis
-            self._planos_cache = planos_bit_disponiveis()
-        return self._planos_cache
-
-    def _adicionar_plano_bit(self, form):
-        from django import forms
-        from conferencia.models import PlanoRenovacaoLista
-        inicial = ''
-        if getattr(self, 'object', None) and self.object.pk:
-            salvo = PlanoRenovacaoLista.objects.filter(lista=self.object).first()
-            inicial = salvo.plano_bit if salvo else ''
-        acesso = self._acesso_qualquer() if getattr(self, 'object', None) and self.object.pk else None
-        if acesso and acesso.painel == 'knewcms':
-            return form  # No knewcms o plano vem do painel.
-        planos = self._planos_bit()
-        if inicial and inicial not in dict(planos):
-            planos = planos + [(inicial, inicial)]
-        if not inicial and acesso:
-            from conferencia.operacoes import plano_sugerido
-            inicial = plano_sugerido(self.object, acesso, planos)
-        form.fields['plano_bit'] = forms.ChoiceField(
-            label='Plano no painel', required=False, initial=inicial,
-            choices=[('', 'Não definido')] + list(planos),
-            widget=forms.Select(attrs={'class': SELECT_CLASS}),
-        )
-        return form
+class PacoteMixin:
+    """Pacote de TV da lista, com as opções do painel do servidor escolhido. Separado do plano de cobrança."""
 
     def _acesso_qualquer(self):
+        if not getattr(self, 'object', None) or not self.object.pk:
+            return None
         if not hasattr(self, '_acesso_lista'):
             from conferencia.operacoes import acessos_das_listas
             self._acesso_lista = acessos_das_listas([self.object]).get(self.object.pk)
         return self._acesso_lista
 
-    def _salvar_plano_bit(self, form, lista):
-        if 'plano_bit' not in form.fields:
-            return
-        from conferencia.operacoes import salvar_plano_da_lista
-        salvar_plano_da_lista(lista, form.cleaned_data.get('plano_bit', ''), self._planos_bit())
+    def _pacotes(self):
+        if not hasattr(self, '_pacotes_cache'):
+            from conferencia.operacoes import pacotes_do_painel
+            self._pacotes_cache = {p: pacotes_do_painel(p) for p in ('bit', 'knewcms')}
+        return self._pacotes_cache
+
+    def _adicionar_pacote(self, form):
+        from django import forms
+        from conferencia.operacoes import pacote_da_lista
+        acesso = self._acesso_qualquer()
+        atual = pacote_da_lista(self.object, acesso)[0] if acesso or (getattr(self, 'object', None) and self.object.pk) else ''
+        for painel, pacotes in self._pacotes().items():
+            pacotes = list(pacotes)
+            inicial = next((pid for pid, nome in pacotes if atual and nome.strip().lower() == atual.strip().lower()), '')
+            if atual and not inicial and acesso and acesso.painel == painel:
+                pacotes.append((atual, atual))
+                inicial = atual
+            # Campo de texto com lista de opções: só o pacote do painel do servidor escolhido é usado e conferido.
+            form.fields[f'pacote_{painel}'] = forms.CharField(
+                label='Pacote', required=False, initial=inicial,
+                widget=forms.Select(choices=[('', 'Não definido')] + pacotes,
+                                    attrs={'class': SELECT_CLASS, 'data-pacote-painel': painel}),
+            )
+        return form
+
+    def _salvar_pacote(self, form, lista):
+        from conferencia.leitura import painel_do_servidor
+        from conferencia.operacoes import salvar_pacote_da_lista
+        painel = painel_do_servidor(lista.servidor) or ''
+        pacotes = self._pacotes().get(painel, [])
+        pacote = form.cleaned_data.get(f'pacote_{painel}', '') if painel in ('bit', 'knewcms') else ''
+        if pacote and pacote not in dict(pacotes):
+            return  # Valor fora das opções do painel: mantém o pacote que já estava.
+        salvar_pacote_da_lista(lista, painel, pacote, pacotes)
 
 
-class ListaCanaisCreateView(PlanoBitMixin, LoginRequiredMixin, CreateView):
+class ListaCanaisCreateView(PacoteMixin, LoginRequiredMixin, CreateView):
     model = ListaCanais
     form_class = ListaCanaisForm
     template_name = 'listas/form.html'
@@ -128,7 +130,7 @@ class ListaCanaisCreateView(PlanoBitMixin, LoginRequiredMixin, CreateView):
         return None
 
     def get_form(self, form_class=None):
-        return self._adicionar_plano_bit(super().get_form(form_class))
+        return self._adicionar_pacote(super().get_form(form_class))
 
     def get_initial(self):
         initial = super().get_initial()
@@ -156,7 +158,7 @@ class ListaCanaisCreateView(PlanoBitMixin, LoginRequiredMixin, CreateView):
             lista.valor_mensalidade = lista.plano.preco_por_tela * lista.num_telas
         lista.save()
         self.object = lista
-        self._salvar_plano_bit(form, lista)
+        self._salvar_pacote(form, lista)
         messages.success(self.request, 'Lista cadastrada com sucesso!')
         return redirect(self.get_success_url())
 
@@ -167,7 +169,7 @@ class ListaCanaisCreateView(PlanoBitMixin, LoginRequiredMixin, CreateView):
         return reverse('listas:detalhe', kwargs={'pk': self.object.pk})
 
 
-class ListaCanaisUpdateView(PlanoBitMixin, LoginRequiredMixin, UpdateView):
+class ListaCanaisUpdateView(PacoteMixin, LoginRequiredMixin, UpdateView):
     model = ListaCanais
     form_class = ListaCanaisForm
     template_name = 'listas/form.html'
@@ -197,7 +199,7 @@ class ListaCanaisUpdateView(PlanoBitMixin, LoginRequiredMixin, UpdateView):
             )
 
     def get_form(self, form_class=None):
-        form = self._adicionar_plano_bit(super().get_form(form_class))
+        form = self._adicionar_pacote(super().get_form(form_class))
         if self._acesso_no_painel():
             form.fields['senha'].disabled = True
             form.fields['senha'].widget.attrs['class'] += ' opacity-60 cursor-not-allowed'
@@ -218,7 +220,7 @@ class ListaCanaisUpdateView(PlanoBitMixin, LoginRequiredMixin, UpdateView):
         if lista.plano:
             lista.valor_mensalidade = lista.plano.preco_por_tela * lista.num_telas
         lista.save()
-        self._salvar_plano_bit(form, lista)
+        self._salvar_pacote(form, lista)
         self._registrar_alteracao(form, lista)
         messages.success(self.request, 'Lista atualizada com sucesso!')
         return redirect(self.get_success_url())
@@ -239,7 +241,7 @@ def lista_detalhe(request, pk):
     from conferencia import escrita
     from conferencia.leitura import LeituraInvalida, tem_token
     from conferencia.models import OperacaoPainel, PlanoRenovacaoLista
-    from conferencia.operacoes import acessos_das_listas, plano_da_lista
+    from conferencia.operacoes import acessos_das_listas, pacote_da_lista
     acesso = acessos_das_listas([lista]).get(lista.pk)
     links, erro_links = None, ''
     # Os links são lidos na hora, só quando pedidos, e não ficam salvos.
@@ -253,7 +255,7 @@ def lista_detalhe(request, pk):
         'apps': apps,
         'mensalidades': mensalidades,
         'acesso': acesso,
-        'plano_painel': plano_da_lista(lista, acesso),
+        'pacote': pacote_da_lista(lista, acesso),
         'pode_links': bool(acesso and acesso.painel == 'bit' and tem_token('bit')),
         'links': links,
         'erro_links': erro_links,
