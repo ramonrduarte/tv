@@ -449,6 +449,7 @@ def cliente_detalhe(request, pk):
     for lista in todas_listas:
         lista.acesso_painel = acessos.get(lista.pk)
         lista.historico_painel = list(lista.operacoes_painel.all()[:4])
+        lista.plano_bit_salvo = getattr(lista, 'plano_renovacao', None) if hasattr(lista, 'plano_renovacao') else None
 
     ativas = [l for l in todas_listas if l.ativa]
     inativas = [l for l in todas_listas if not l.ativa]

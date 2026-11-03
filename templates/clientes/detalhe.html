@@ -394,7 +394,7 @@
           Alterar no painel
         </a>
         {% if lista.acesso_painel %}
-        <span class="text-xs text-slate-500">{{ lista.acesso_painel.get_painel_display }}{% if lista.acesso_painel.lixeira %} · na lixeira{% elif lista.acesso_painel.validade %} · vence {{ lista.acesso_painel.validade|date:"d/m/Y" }}{% endif %}</span>
+        <span class="text-xs text-slate-500">{{ lista.acesso_painel.get_painel_display }}{% if lista.acesso_painel.lixeira %} · na lixeira{% elif lista.acesso_painel.validade %} · vence {{ lista.acesso_painel.validade|date:"d/m/Y" }}{% endif %}{% if lista.plano_bit_salvo %} · plano {{ lista.plano_bit_salvo.nome }}{% endif %}{% if lista.acesso_painel.pacote %} · pacote {{ lista.acesso_painel.pacote }}{% endif %}</span>
         {% endif %}
         <a href="{% url 'listas:editar' lista.pk %}"
            class="text-xs px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition ml-auto">

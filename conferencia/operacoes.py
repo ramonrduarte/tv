@@ -3,6 +3,7 @@ import unicodedata
 from collections import defaultdict
 from datetime import timedelta
 
+from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 
@@ -61,6 +62,7 @@ def candidatas(filtro='vencendo', busca='', painel='', cliente_id=None):
     listas = list(listas.select_related('cliente', 'servidor', 'pagador').order_by('cliente__nome', 'nome'))
     acessos = acessos_das_listas(listas)
     termos = _normalizar(busca).split()
+    planos_salvos = dict(PlanoRenovacaoLista.objects.values_list('lista_id', 'nome'))
     itens = []
     for lista in listas:
         acesso = acessos.get(lista.pk)
@@ -82,6 +84,7 @@ def candidatas(filtro='vencendo', busca='', painel='', cliente_id=None):
             'vencida': dias is not None and acesso.validade < agora,
             'sem_token': not tem_token(acesso.painel),
             'pagamento': lista.status_pagamento_display(),
+            'plano': planos_salvos.get(lista.pk, ''),
         })
     itens.sort(key=lambda i: (i['dias'] is None, i['dias'] if i['dias'] is not None else 0))
     return itens
@@ -225,3 +228,29 @@ def trazer_senha(lista, acesso, usuario):
         ListaCanais.objects.filter(pk=lista.pk).update(senha=senha)
         AcessoPainel.objects.filter(pk=acesso.pk).update(senha_hash=assinar_senha(senha))
     lista.senha = senha
+
+
+def planos_bit_disponiveis():
+    """Planos que o BIT oferece, guardados por 1 hora. Sem API, usa os já salvos nas listas."""
+    planos = cache.get('planos_bit')
+    if planos is None:
+        planos = []
+        if tem_token('bit'):
+            try:
+                planos = escrita.bit_planos()
+            except LeituraInvalida:
+                planos = []
+        if planos:
+            cache.set('planos_bit', planos, 3600)
+    if not planos:
+        planos = sorted({(p.plano_bit, p.nome or p.plano_bit) for p in PlanoRenovacaoLista.objects.all()}, key=lambda x: x[1])
+    return planos
+
+
+def salvar_plano_da_lista(lista, plano_bit, planos):
+    if not plano_bit:
+        PlanoRenovacaoLista.objects.filter(lista=lista).delete()
+        return
+    PlanoRenovacaoLista.objects.update_or_create(
+        lista=lista, defaults={'plano_bit': plano_bit, 'nome': dict(planos).get(plano_bit, plano_bit)},
+    )

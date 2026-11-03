@@ -6,7 +6,7 @@ from django.views.generic import ListView, CreateView, UpdateView
 from django.urls import reverse_lazy, reverse
 
 from .models import ListaCanais, ListaApp, Servidor, AppIPTV, Plano
-from .forms import ListaCanaisForm, ListaAppForm, ServidorForm, AppIPTVForm, PlanoForm
+from .forms import SELECT_CLASS, ListaCanaisForm, ListaAppForm, ServidorForm, AppIPTVForm, PlanoForm
 
 
 class ListaCanaisListView(LoginRequiredMixin, ListView):
@@ -67,7 +67,38 @@ def _planos_json():
     return json.dumps(dados)
 
 
-class ListaCanaisCreateView(LoginRequiredMixin, CreateView):
+class PlanoBitMixin:
+    """Plano do BIT usado na renovação, escolhido na própria lista. Separado do plano de cobrança."""
+
+    def _planos_bit(self):
+        if not hasattr(self, '_planos_cache'):
+            from conferencia.operacoes import planos_bit_disponiveis
+            self._planos_cache = planos_bit_disponiveis()
+        return self._planos_cache
+
+    def _adicionar_plano_bit(self, form):
+        from django import forms
+        from conferencia.models import PlanoRenovacaoLista
+        inicial = ''
+        if getattr(self, 'object', None) and self.object.pk:
+            salvo = PlanoRenovacaoLista.objects.filter(lista=self.object).first()
+            inicial = salvo.plano_bit if salvo else ''
+        planos = self._planos_bit()
+        if inicial and inicial not in dict(planos):
+            planos = planos + [(inicial, inicial)]
+        form.fields['plano_bit'] = forms.ChoiceField(
+            label='Plano no BIT', required=False, initial=inicial,
+            choices=[('', 'Não definido')] + list(planos),
+            widget=forms.Select(attrs={'class': SELECT_CLASS}),
+        )
+        return form
+
+    def _salvar_plano_bit(self, form, lista):
+        from conferencia.operacoes import salvar_plano_da_lista
+        salvar_plano_da_lista(lista, form.cleaned_data.get('plano_bit', ''), self._planos_bit())
+
+
+class ListaCanaisCreateView(PlanoBitMixin, LoginRequiredMixin, CreateView):
     model = ListaCanais
     form_class = ListaCanaisForm
     template_name = 'listas/form.html'
@@ -81,6 +112,9 @@ class ListaCanaisCreateView(LoginRequiredMixin, CreateView):
             except Cliente.DoesNotExist:
                 pass
         return None
+
+    def get_form(self, form_class=None):
+        return self._adicionar_plano_bit(super().get_form(form_class))
 
     def get_initial(self):
         initial = super().get_initial()
@@ -107,6 +141,8 @@ class ListaCanaisCreateView(LoginRequiredMixin, CreateView):
         if lista.plano:
             lista.valor_mensalidade = lista.plano.preco_por_tela * lista.num_telas
         lista.save()
+        self.object = lista
+        self._salvar_plano_bit(form, lista)
         messages.success(self.request, 'Lista cadastrada com sucesso!')
         return redirect(self.get_success_url())
 
@@ -117,7 +153,7 @@ class ListaCanaisCreateView(LoginRequiredMixin, CreateView):
         return reverse('listas:detalhe', kwargs={'pk': self.object.pk})
 
 
-class ListaCanaisUpdateView(LoginRequiredMixin, UpdateView):
+class ListaCanaisUpdateView(PlanoBitMixin, LoginRequiredMixin, UpdateView):
     model = ListaCanais
     form_class = ListaCanaisForm
     template_name = 'listas/form.html'
@@ -147,7 +183,7 @@ class ListaCanaisUpdateView(LoginRequiredMixin, UpdateView):
             )
 
     def get_form(self, form_class=None):
-        form = super().get_form(form_class)
+        form = self._adicionar_plano_bit(super().get_form(form_class))
         if self._acesso_no_painel():
             form.fields['senha'].disabled = True
             form.fields['senha'].widget.attrs['class'] += ' opacity-60 cursor-not-allowed'
@@ -156,6 +192,7 @@ class ListaCanaisUpdateView(LoginRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['senha_no_painel'] = self._acesso_no_painel()
+        ctx['acesso_painel'] = self._acesso_no_painel()
         ctx['titulo'] = f'Editar: {self.object.nome}'
         ctx['btn_label'] = 'Salvar Alterações'
         ctx['planos_json'] = _planos_json()
@@ -167,6 +204,7 @@ class ListaCanaisUpdateView(LoginRequiredMixin, UpdateView):
         if lista.plano:
             lista.valor_mensalidade = lista.plano.preco_por_tela * lista.num_telas
         lista.save()
+        self._salvar_plano_bit(form, lista)
         self._registrar_alteracao(form, lista)
         messages.success(self.request, 'Lista atualizada com sucesso!')
         return redirect(self.get_success_url())

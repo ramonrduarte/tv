@@ -42,7 +42,7 @@
                @change="marcadas = document.querySelectorAll('input[name=lista]:checked').length">
         <div class="flex-1 min-w-[220px]">
           <p class="text-sm font-medium text-slate-800">{{ i.lista.cliente.nome }} · {{ i.lista.nome }}</p>
-          <p class="text-xs text-slate-500"><span class="font-mono">{{ i.acesso.usuario }}</span> · {{ i.acesso.get_painel_display }}{% if i.lista.pagador %} · paga por {{ i.lista.pagador.nome }}{% endif %}{% if i.acesso.teste %} · teste{% endif %}{% if i.sem_token %} · sem chave da API{% endif %}</p>
+          <p class="text-xs text-slate-500"><span class="font-mono">{{ i.acesso.usuario }}</span> · {{ i.acesso.get_painel_display }}{% if i.lista.pagador %} · paga por {{ i.lista.pagador.nome }}{% endif %}{% if i.plano %} · plano {{ i.plano }}{% elif i.acesso.painel == 'bit' %} · <span class="text-yellow-700">sem plano definido</span>{% endif %}{% if i.acesso.teste %} · teste{% endif %}{% if i.sem_token %} · sem chave da API{% endif %}</p>
         </div>
         <span class="px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap
           {% if i.pagamento.1 == 'red' %}bg-red-100 text-red-700{% elif i.pagamento.1 == 'yellow' %}bg-yellow-100 text-yellow-700{% elif i.pagamento.1 == 'green' %}bg-green-100 text-green-700{% else %}bg-slate-200 text-slate-600{% endif %}">Pagamento: {{ i.pagamento.0 }}</span>
