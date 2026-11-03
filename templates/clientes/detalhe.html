@@ -257,6 +257,7 @@
         <div class="flex flex-wrap items-center gap-2">
           <button type="button" onclick="copyText('{% if lista.dns_efetivo != '—' %}Servidor: {{ lista.dns_efetivo|escapejs }}\n{% endif %}Usuário: {{ lista.usuario|escapejs }}\nSenha: {{ lista.senha|escapejs }}', this)"
                   class="text-xs px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg font-medium transition">Copiar acesso</button>
+          {% if lista.usa_m3u %}
           <span class="text-xs text-slate-400 ml-1">Playlist:</span>
           <button type="button" onclick="copiarPlaylist('{% url 'listas:playlist' lista.pk %}?tipo=m3u', this)"
                   class="text-xs px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition">Copiar M3U</button>
@@ -266,6 +267,7 @@
           {% endif %}
           <a href="{% url 'listas:playlist' lista.pk %}?tipo=m3u&baixar=1" target="_blank" rel="noopener noreferrer"
              class="text-xs px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition">Baixar M3U</a>
+          {% endif %}
         </div>
       </div>
 

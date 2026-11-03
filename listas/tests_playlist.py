@@ -23,11 +23,23 @@ class PlaylistTests(Base):
             self.assertEqual(self.pedir(self.l_bit, tipo='m3u').json(), {'texto': LINKS['m3u'], 'origem': 'painel'})
             self.assertEqual(self.pedir(self.l_bit, tipo='curto').json()['texto'], 'http://enc.test/abc')
 
-    def test_knewcms_monta_m3u_no_padrao_xtream_e_nao_tem_link_curto(self):
-        resposta = self.pedir(self.l_knew, tipo='m3u').json()
-        self.assertEqual(resposta['texto'], 'http://warez.test:80/get.php?username=k1&password=s1&type=m3u_plus&output=ts')
-        self.assertEqual(resposta['origem'], 'montada')
+    def test_knewcms_nao_tem_m3u_nem_link_curto(self):
+        resposta = self.pedir(self.l_knew, tipo='m3u')
+        self.assertEqual(resposta.status_code, 400)
+        self.assertIn('knewcms não usa lista M3U', resposta.json()['erro'])
         self.assertEqual(self.pedir(self.l_knew, tipo='curto').status_code, 400)
+
+    def test_cartao_do_knewcms_nao_mostra_botoes_de_m3u(self):
+        self.l_bit.delete()
+        resposta = self.client.get(reverse('clientes:detalhe', args=[self.l_knew.cliente_id]))
+        self.assertNotContains(resposta, 'Copiar M3U')
+        self.assertNotContains(resposta, 'Baixar M3U')
+        self.assertContains(resposta, 'Copiar acesso')
+
+    def test_modelo_do_app_com_m3u_e_recusado_no_knewcms(self):
+        app = AppIPTV.objects.create(nome='Smart', formato_lista='{m3u}')
+        la = ListaApp.objects.create(lista=self.l_knew, app=app)
+        self.assertEqual(self.pedir(self.l_knew, tipo='app', app=la.pk).status_code, 400)
 
     def test_modelo_do_app_com_dados_da_lista_e_do_app(self):
         app = AppIPTV.objects.create(nome='Clouddy', formato_lista='xc://{host}:{porta}|{usuario}|{senha}')
@@ -54,13 +66,14 @@ class PlaylistTests(Base):
         self.assertEqual(self.pedir(self.l_knew, tipo='app', app=la.pk).status_code, 404)
 
     def test_baixar_redireciona_para_a_m3u(self):
-        resposta = self.pedir(self.l_knew, tipo='m3u', baixar='1')
+        with mock.patch.object(escrita, '_bit', return_value=LINKS):
+            resposta = self.pedir(self.l_bit, tipo='m3u', baixar='1')
         self.assertEqual(resposta.status_code, 302)
-        self.assertIn('get.php?username=k1', resposta['Location'])
+        self.assertEqual(resposta['Location'], LINKS['m3u'])
 
     def test_exige_login(self):
         self.client.logout()
-        self.assertEqual(self.pedir(self.l_knew, tipo='m3u').status_code, 302)
+        self.assertEqual(self.pedir(self.l_bit, tipo='m3u').status_code, 302)
 
     def test_cartao_do_cliente_mostra_blocos_e_botoes(self):
         app = AppIPTV.objects.create(nome='Clouddy', formato_lista='xc://{servidor}|{usuario}|{senha}')

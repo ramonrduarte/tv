@@ -446,7 +446,7 @@ def cliente_detalhe(request, pk):
             status__in=['pendente', 'atrasado']
         ).order_by('-vencimento').first()
 
-    from conferencia.leitura import tem_token
+    from conferencia.leitura import painel_do_servidor, tem_token
     from conferencia.operacoes import acessos_das_listas
     acessos = acessos_das_listas(todas_listas)
     for lista in todas_listas:
@@ -454,6 +454,7 @@ def cliente_detalhe(request, pk):
         lista.historico_painel = list(lista.operacoes_painel.all()[:4])
         lista.plano_bit_salvo = getattr(lista, 'plano_renovacao', None) if hasattr(lista, 'plano_renovacao') else None
         lista.tem_link_curto = bool(lista.acesso_painel and lista.acesso_painel.painel == 'bit' and tem_token('bit'))
+        lista.usa_m3u = (lista.acesso_painel.painel if lista.acesso_painel else painel_do_servidor(lista.servidor)) != 'knewcms'
 
     ativas = [l for l in todas_listas if l.ativa]
     inativas = [l for l in todas_listas if not l.ativa]

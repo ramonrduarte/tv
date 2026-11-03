@@ -17,6 +17,18 @@ class PlaylistIndisponivel(Exception):
     pass
 
 
+def painel_da_lista(lista):
+    from conferencia.leitura import painel_do_servidor
+    from conferencia.operacoes import acessos_das_listas
+    acesso = acessos_das_listas([lista]).get(lista.pk)
+    return acesso.painel if acesso else painel_do_servidor(lista.servidor)
+
+
+def usa_m3u(lista):
+    """O knewcms não trabalha com lista M3U."""
+    return painel_da_lista(lista) != 'knewcms'
+
+
 def _servidor(lista, lista_app=None):
     endereco = (lista_app.dns_customizado if lista_app and lista_app.dns_customizado else '') or ''
     if not endereco and lista.servidor_id:
@@ -50,7 +62,7 @@ def dados(lista, lista_app=None, precisa_links=True):
         servidor = links['server'].rstrip('/')
     partes = urllib.parse.urlparse(servidor) if servidor else None
     m3u = (links or {}).get('m3u') or ''
-    if not m3u and servidor:
+    if not m3u and servidor and usa_m3u(lista):
         m3u = (f'{servidor}/get.php?username={urllib.parse.quote(usuario)}'
                f'&password={urllib.parse.quote(senha)}&type=m3u_plus&output=ts')
     return {
@@ -72,6 +84,8 @@ def gerar(lista, tipo, lista_app=None):
         if not modelo:
             raise PlaylistIndisponivel('Este aplicativo não tem modelo de lista cadastrado.')
         precisa = '{m3u}' in modelo or '{curto}' in modelo
+        if precisa and not usa_m3u(lista):
+            raise PlaylistIndisponivel('O modelo deste app usa M3U, que o knewcms não tem.')
         valores = dados(lista, lista_app, precisa_links=precisa)
         texto = modelo
         for chave in ('servidor', 'host', 'porta', 'usuario', 'senha', 'm3u', 'curto'):
@@ -83,5 +97,7 @@ def gerar(lista, tipo, lista_app=None):
             raise PlaylistIndisponivel('Link curto só existe para listas do BIT com a API configurada.')
         return valores['curto'], valores['origem']
     if not valores['m3u']:
+        if not usa_m3u(lista):
+            raise PlaylistIndisponivel('O knewcms não usa lista M3U.')
         raise PlaylistIndisponivel('A lista não tem servidor para montar a M3U.')
     return valores['m3u'], valores['origem']
