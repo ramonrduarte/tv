@@ -273,7 +273,6 @@ class ClienteListView(LoginRequiredMixin, ListView):
     FILTROS = [
         ('todos', 'Todos'),
         ('atrasado', 'Atrasados'),
-        ('pendente', 'Pendentes'),
         ('em_dia', 'Em dia'),
         ('teste', 'Em teste'),
         ('inativa', 'Inativas'),

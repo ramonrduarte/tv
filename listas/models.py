@@ -151,7 +151,8 @@ class ListaCanais(models.Model):
             return 'em_dia'
         if ultima.vencimento < hoje:
             return 'atrasado'
-        return 'pendente'
+        # Mensalidade em aberto que ainda não venceu: o cliente está em dia até o vencimento.
+        return 'em_dia'
 
     def status_pagamento_display(self):
         mapa = {
