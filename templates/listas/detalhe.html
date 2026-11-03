@@ -97,10 +97,8 @@
       <dl class="space-y-2 text-sm">
         <div><dt class="text-xs text-slate-400">Painel</dt><dd class="text-slate-700">{{ acesso.get_painel_display }} · <span class="font-mono">{{ acesso.usuario }}</span></dd></div>
         <div><dt class="text-xs text-slate-400">Validade no painel</dt><dd class="text-slate-700">{% if acesso.lixeira %}Na lixeira{% elif acesso.validade %}{{ acesso.validade|date:"d/m/Y H:i" }}{% else %}—{% endif %}</dd></div>
-        {% if acesso.painel == 'bit' %}
-        <div><dt class="text-xs text-slate-400">Plano no BIT</dt><dd class="text-slate-700">{% if plano_bit %}{{ plano_bit.nome }}{% else %}<span class="text-yellow-700">Não definido</span>{% endif %}</dd></div>
-        {% endif %}
-        {% if acesso.pacote %}<div><dt class="text-xs text-slate-400">Pacote</dt><dd class="text-slate-700">{{ acesso.pacote }}</dd></div>{% endif %}
+        <div><dt class="text-xs text-slate-400">Plano no painel</dt><dd class="text-slate-700">{% if plano_painel.0 %}{{ plano_painel.0 }}{% if plano_painel.1 == 'sugerido' %} <span class="text-xs text-slate-400">(sugerido pelo pacote)</span>{% endif %}{% else %}<span class="text-yellow-700">Não definido</span>{% endif %}</dd></div>
+        {% if acesso.painel == 'bit' and acesso.pacote %}<div><dt class="text-xs text-slate-400">Pacote</dt><dd class="text-slate-700">{{ acesso.pacote }}</dd></div>{% endif %}
       </dl>
       <div class="flex flex-wrap gap-2 mt-4">
         <a href="{% url 'conferencia:acesso_editar' lista.pk %}?voltar={{ request.path|urlencode }}" class="text-xs px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition">Alterar no painel</a>

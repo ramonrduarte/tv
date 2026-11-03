@@ -158,7 +158,7 @@ def _acesso_knewcms(item):
         'telas': item.get('max_connections'),
         'whatsapp': item.get('whatsapp') or '',
         'observacao': item.get('notes') or '',
-        'pacote': str((item.get('plan') or {}).get('name') or '')[:200],
+        'plano': str((item.get('plan') or {}).get('name') or '')[:200],
     }
 
 

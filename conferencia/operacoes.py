@@ -62,7 +62,6 @@ def candidatas(filtro='vencendo', busca='', painel='', cliente_id=None):
     listas = list(listas.select_related('cliente', 'servidor', 'pagador').order_by('cliente__nome', 'nome'))
     acessos = acessos_das_listas(listas)
     termos = _normalizar(busca).split()
-    planos_salvos = dict(PlanoRenovacaoLista.objects.values_list('lista_id', 'nome'))
     itens = []
     for lista in listas:
         acesso = acessos.get(lista.pk)
@@ -84,7 +83,7 @@ def candidatas(filtro='vencendo', busca='', painel='', cliente_id=None):
             'vencida': dias is not None and acesso.validade < agora,
             'sem_token': not tem_token(acesso.painel),
             'pagamento': lista.status_pagamento_display(),
-            'plano': planos_salvos.get(lista.pk, ''),
+            'plano': plano_da_lista(lista, acesso)[0],
         })
     itens.sort(key=lambda i: (i['dias'] is None, i['dias'] if i['dias'] is not None else 0))
     return itens
@@ -98,12 +97,40 @@ def _recente(lista):
     ).exists()
 
 
+def _plano_pelo_pacote(acesso, exceto_lista=None):
+    """Plano mais usado nas outras listas do BIT com o mesmo pacote. Devolve (id, nome) ou None."""
+    from collections import Counter
+    pacote = (acesso.pacote or '').strip().lower()
+    if acesso.painel != 'bit' or not pacote:
+        return None
+    usuarios = {a.usuario.strip().lower() for a in AcessoPainel.objects.filter(painel='bit') if (a.pacote or '').strip().lower() == pacote}
+    salvos = PlanoRenovacaoLista.objects.select_related('lista').exclude(lista=exceto_lista)
+    contagem = Counter((p.plano_bit, p.nome) for p in salvos if p.lista.usuario.strip().lower() in usuarios)
+    return contagem.most_common(1)[0][0] if contagem else None
+
+
+def plano_da_lista(lista, acesso):
+    """(nome do plano, origem). No knewcms vem do painel; no BIT, do que foi escolhido ou sugerido."""
+    if not acesso:
+        return '', ''
+    if acesso.painel == 'knewcms':
+        return acesso.plano, 'painel' if acesso.plano else ''
+    salvo = PlanoRenovacaoLista.objects.filter(lista=lista).first()
+    if salvo:
+        return salvo.nome or salvo.plano_bit, 'escolhido'
+    sugerido = _plano_pelo_pacote(acesso, lista)
+    return (sugerido[1], 'sugerido') if sugerido else ('', '')
+
+
 def plano_sugerido(lista, acesso, planos):
-    """Plano salvo para a lista ou, na primeira vez, o plano com o nome do pacote dela no BIT."""
+    """Plano salvo da lista; senão o usado em listas com o mesmo pacote; senão o de nome igual ao pacote."""
     salvo = PlanoRenovacaoLista.objects.filter(lista=lista).first()
     validos = dict(planos)
     if salvo and salvo.plano_bit in validos:
         return salvo.plano_bit
+    pelo_pacote = _plano_pelo_pacote(acesso, lista)
+    if pelo_pacote and pelo_pacote[0] in validos:
+        return pelo_pacote[0]
     pacote = (acesso.pacote or '').strip().lower()
     return next((valor for valor, nome in planos if pacote and nome.strip().lower() == pacote), '')
 

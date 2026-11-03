@@ -83,17 +83,31 @@ class PlanoBitMixin:
         if getattr(self, 'object', None) and self.object.pk:
             salvo = PlanoRenovacaoLista.objects.filter(lista=self.object).first()
             inicial = salvo.plano_bit if salvo else ''
+        acesso = self._acesso_qualquer() if getattr(self, 'object', None) and self.object.pk else None
+        if acesso and acesso.painel == 'knewcms':
+            return form  # No knewcms o plano vem do painel.
         planos = self._planos_bit()
         if inicial and inicial not in dict(planos):
             planos = planos + [(inicial, inicial)]
+        if not inicial and acesso:
+            from conferencia.operacoes import plano_sugerido
+            inicial = plano_sugerido(self.object, acesso, planos)
         form.fields['plano_bit'] = forms.ChoiceField(
-            label='Plano no BIT', required=False, initial=inicial,
+            label='Plano no painel', required=False, initial=inicial,
             choices=[('', 'Não definido')] + list(planos),
             widget=forms.Select(attrs={'class': SELECT_CLASS}),
         )
         return form
 
+    def _acesso_qualquer(self):
+        if not hasattr(self, '_acesso_lista'):
+            from conferencia.operacoes import acessos_das_listas
+            self._acesso_lista = acessos_das_listas([self.object]).get(self.object.pk)
+        return self._acesso_lista
+
     def _salvar_plano_bit(self, form, lista):
+        if 'plano_bit' not in form.fields:
+            return
         from conferencia.operacoes import salvar_plano_da_lista
         salvar_plano_da_lista(lista, form.cleaned_data.get('plano_bit', ''), self._planos_bit())
 
@@ -192,7 +206,7 @@ class ListaCanaisUpdateView(PlanoBitMixin, LoginRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['senha_no_painel'] = self._acesso_no_painel()
-        ctx['acesso_painel'] = self._acesso_no_painel()
+        ctx['acesso_painel'] = self._acesso_qualquer()
         ctx['titulo'] = f'Editar: {self.object.nome}'
         ctx['btn_label'] = 'Salvar Alterações'
         ctx['planos_json'] = _planos_json()
@@ -225,7 +239,7 @@ def lista_detalhe(request, pk):
     from conferencia import escrita
     from conferencia.leitura import LeituraInvalida, tem_token
     from conferencia.models import OperacaoPainel, PlanoRenovacaoLista
-    from conferencia.operacoes import acessos_das_listas
+    from conferencia.operacoes import acessos_das_listas, plano_da_lista
     acesso = acessos_das_listas([lista]).get(lista.pk)
     links, erro_links = None, ''
     # Os links são lidos na hora, só quando pedidos, e não ficam salvos.
@@ -239,7 +253,7 @@ def lista_detalhe(request, pk):
         'apps': apps,
         'mensalidades': mensalidades,
         'acesso': acesso,
-        'plano_bit': PlanoRenovacaoLista.objects.filter(lista=lista).first(),
+        'plano_painel': plano_da_lista(lista, acesso),
         'pode_links': bool(acesso and acesso.painel == 'bit' and tem_token('bit')),
         'links': links,
         'erro_links': erro_links,

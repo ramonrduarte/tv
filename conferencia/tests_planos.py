@@ -14,7 +14,7 @@ PLANOS = [('p-completa', 'Lista Completa'), ('p-30', 'Plano 30')]
 class PlanoPorListaTests(Base):
     def test_le_o_pacote_dos_dois_paineis(self):
         self.assertEqual(_acesso_bit({'username': 'x', 'package': {'id': '1', 'title': 'Plano 30'}}, False)['pacote'], 'Plano 30')
-        self.assertEqual(_acesso_knewcms({'username': 'x', 'plan': {'id': 2, 'name': 'Essencial'}})['pacote'], 'Essencial')
+        self.assertEqual(_acesso_knewcms({'username': 'x', 'plan': {'id': 2, 'name': 'Essencial'}})['plano'], 'Essencial')
 
     def test_sugere_pelo_pacote_e_depois_usa_o_salvo(self):
         acesso = AcessoPainel.objects.get(usuario='b1')

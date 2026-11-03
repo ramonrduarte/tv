@@ -24,7 +24,7 @@
     {% if erro_bit %}
     <p class="text-sm text-red-600">Não foi possível ler os planos do BIT: {{ erro_bit }} As listas do BIT não serão renovadas.</p>
     {% elif planos %}
-    <p class="text-sm text-slate-600">Cada lista do BIT usa o seu plano, que fica salvo nela para as próximas renovações. Na primeira vez, o sistema sugere o plano com o mesmo nome do pacote da lista no painel.</p>
+    <p class="text-sm text-slate-600">Cada lista do BIT usa o seu plano, que fica salvo nela para as próximas renovações. Sem plano salvo, o sistema sugere o usado em outras listas com o mesmo pacote.</p>
     {% else %}
     <p class="text-sm text-yellow-700">O BIT não retornou planos. As listas do BIT não serão renovadas.</p>
     {% endif %}

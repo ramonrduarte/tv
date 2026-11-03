@@ -19,6 +19,7 @@ class AcessoPainel(models.Model):
     telas = models.PositiveSmallIntegerField('Telas', null=True, blank=True)
     whatsapp = models.CharField('WhatsApp', max_length=40, blank=True)
     observacao = models.TextField('Observação', blank=True)
+    plano = models.CharField('Plano no painel', max_length=200, blank=True)
     pacote = models.CharField('Pacote no painel', max_length=200, blank=True)
     lido_em = models.DateTimeField('Lido em', auto_now=True)
 

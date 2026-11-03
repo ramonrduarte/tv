@@ -30,7 +30,7 @@ class PlanoNaListaTests(Base):
         AcessoPainel.objects.filter(usuario='b1').update(pacote='Full HD + H265 + HD + SD')
         with mock.patch.object(escrita, '_bit', return_value=PLANOS_API):
             resposta = self.client.get(reverse('listas:editar', args=[self.l_bit.pk]))
-            self.assertContains(resposta, 'Plano no BIT (usado na renovação)')
+            self.assertContains(resposta, 'Plano no painel (usado na renovação)')
             self.assertContains(resposta, 'Full HD + H265 + HD + SD')
             self.assertContains(resposta, 'Plano de cobrança')
             self.client.post(reverse('listas:editar', args=[self.l_bit.pk]), self.dados_formulario(self.l_bit, plano_bit='p-30'))
@@ -64,3 +64,29 @@ class PlanoNaListaTests(Base):
         with mock.patch.object(escrita, '_bit', side_effect=[PLANOS_API, {'credits': 9}]):
             resposta = self.client.post(reverse('conferencia:renovar_conferir'), {'lista': [self.l_bit.pk], 'meses': '1'})
         self.assertEqual(resposta.context['itens'][0]['plano_sugerido'], 'p-30')
+
+
+class PlanoNoPainelTests(Base):
+    def test_knewcms_mostra_o_plano_do_painel_sem_campo_para_escolher(self):
+        from .models import AcessoPainel as Acesso
+        Acesso.objects.filter(usuario='k1').update(plano='Essencial 2 IPTV + 1 P2P')
+        resposta = self.client.get(reverse('listas:editar', args=[self.l_knew.pk]))
+        self.assertNotIn('plano_bit', resposta.context['form'].fields)
+        self.assertContains(resposta, 'Essencial 2 IPTV + 1 P2P')
+        cliente = self.client.get(reverse('clientes:detalhe', args=[self.l_knew.cliente_id]))
+        self.assertContains(cliente, 'Essencial 2 IPTV + 1 P2P')
+
+    def test_bit_sem_plano_usa_o_das_listas_com_mesmo_pacote(self):
+        from listas.models import ListaCanais
+        from .models import AcessoPainel as Acesso
+        from .operacoes import plano_da_lista, plano_sugerido
+        outra = ListaCanais.objects.create(cliente=self.l_bit.cliente, servidor=self.l_bit.servidor, nome='b2', usuario='b2', senha='x')
+        Acesso.objects.create(painel='bit', usuario='b2', pacote='Full HD')
+        Acesso.objects.filter(usuario='b1').update(pacote='Full HD')
+        PlanoRenovacaoLista.objects.create(lista=outra, plano_bit='p-completa', nome='Lista Completa')
+        acesso = Acesso.objects.get(usuario='b1')
+        self.assertEqual(plano_da_lista(self.l_bit, acesso), ('Lista Completa', 'sugerido'))
+        self.assertEqual(plano_sugerido(self.l_bit, acesso, [('p-completa', 'Lista Completa'), ('p-30', 'Plano 30')]), 'p-completa')
+        with mock.patch.object(escrita, '_bit', return_value=PLANOS_API):
+            resposta = self.client.get(reverse('listas:editar', args=[self.l_bit.pk]))
+        self.assertEqual(resposta.context['form'].fields['plano_bit'].initial, 'p-completa')
