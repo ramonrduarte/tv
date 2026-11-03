@@ -4,7 +4,10 @@
 
 {% block content %}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-  <p class="text-sm text-slate-500">Só consulta: nada é alterado nos painéis nem nos cadastros.</p>
+  <div class="flex flex-wrap items-center gap-3">
+    <p class="text-sm text-slate-500">A conferência só consulta: nada é alterado nos painéis nem nos cadastros.</p>
+    <a href="{% url 'conferencia:renovar' %}" class="px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition">Renovar listas</a>
+  </div>
   <form method="post" action="{% url 'conferencia:salvar_frequencia' %}" class="flex flex-wrap items-center gap-2">
     {% csrf_token %}
     <label for="intervalo_horas" class="text-sm text-slate-500">Leitura automática dos painéis</label>
@@ -85,6 +88,9 @@
       {% endif %}
       {% if item.lista_id %}
       <a href="{% url 'listas:detalhe' item.lista_id %}" class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 transition">Abrir lista</a>
+      {% if item.grupo == 'dados' %}
+      <a href="{% url 'conferencia:acesso_editar' item.lista_id %}" class="px-3 py-1.5 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 transition">Alterar no painel</a>
+      {% endif %}
       {% endif %}
       {% if item.vinculo_id %}
       <form method="post" action="{% url 'conferencia:desvincular' item.vinculo_id %}">

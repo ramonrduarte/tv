@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Conferir renovação — IPTV Manager{% endblock %}
+{% block page_title %}Conferir renovação{% endblock %}
+
+{% block content %}
+<section class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-4 max-w-3xl">
+  <h2 class="font-semibold text-slate-800 mb-2">Renovar {{ itens|length }} lista{{ itens|length|pluralize:"s" }} por {{ meses }} {% if meses == 1 %}mês{% else %}meses{% endif %}</h2>
+  <ul class="text-sm text-slate-600 space-y-1 mb-3">
+    {% if qtd_knewcms %}<li>knewcms: {{ qtd_knewcms }} lista{{ qtd_knewcms|pluralize:"s" }}. O painel não informa o saldo de créditos.</li>{% endif %}
+    {% if qtd_bit %}<li>BIT: {{ qtd_bit }} lista{{ qtd_bit|pluralize:"s" }}.{% if creditos is not None %} Saldo atual: {{ creditos }} crédito{{ creditos|pluralize:"s" }}.{% endif %}</li>{% endif %}
+  </ul>
+  <p class="text-sm text-slate-500">Cada lista é enviada uma vez. Se algum painel não responder, a lista fica marcada como "sem resposta" e não é reenviada sozinha.</p>
+</section>
+
+<form method="post" action="{% url 'conferencia:renovar_executar' %}" class="max-w-3xl">
+  {% csrf_token %}
+  <input type="hidden" name="lote" value="{{ lote }}">
+  <input type="hidden" name="meses" value="{{ meses }}">
+  {% for i in itens %}<input type="hidden" name="lista" value="{{ i.lista.pk }}">{% endfor %}
+
+  {% if tem_bit %}
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-4">
+    {% if erro_bit %}
+    <p class="text-sm text-red-600">Não foi possível ler os planos do BIT: {{ erro_bit }} As listas do BIT não serão renovadas.</p>
+    {% elif planos %}
+    <label for="plano_bit" class="block text-sm font-medium text-slate-700 mb-1">Plano do BIT</label>
+    <select id="plano_bit" name="plano_bit" required class="w-full max-w-md px-2 py-1.5 text-sm border border-slate-300 rounded-lg bg-white">
+      <option value="">Escolha o plano</option>
+      {% for valor, nome in planos %}<option value="{{ valor }}" {% if valor == plano_salvo %}selected{% endif %}>{{ nome }}</option>{% endfor %}
+    </select>
+    <p class="text-xs text-slate-500 mt-1">A escolha fica salva para as próximas renovações.</p>
+    {% else %}
+    <p class="text-sm text-yellow-700">O BIT não retornou planos. As listas do BIT não serão renovadas.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+    <div class="divide-y divide-slate-100">
+      {% for i in itens %}
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5">
+        <p class="flex-1 min-w-[200px] text-sm text-slate-800">{{ i.lista.cliente.nome }} · {{ i.lista.nome }} <span class="text-xs text-slate-500 font-mono">{{ i.acesso.usuario }}</span></p>
+        <span class="text-xs text-slate-500">{{ i.acesso.get_painel_display }}</span>
+        <span class="text-xs text-slate-500">{% if i.acesso.validade %}Vence {{ i.acesso.validade|date:"d/m/Y" }}{% endif %}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="flex flex-wrap items-center gap-3">
+    <a href="{% url 'conferencia:renovar' %}" class="px-4 py-2 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 transition">Voltar</a>
+    <button type="submit" onclick="this.disabled=true; this.textContent='Enviando…'; this.form.submit();"
+            class="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition">Confirmar e renovar</button>
+  </div>
+</form>
+{% endblock %}

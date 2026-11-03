@@ -82,6 +82,7 @@ class ConfiguracaoConferencia(models.Model):
     intervalo_horas = models.PositiveSmallIntegerField(
         'Leitura automática do knewcms', choices=INTERVALO_CHOICES, default=12,
     )
+    plano_bit = models.CharField('Plano do BIT usado na renovação', max_length=60, blank=True)
 
     class Meta:
         verbose_name = 'Configuração da conferência'
@@ -107,3 +108,41 @@ class DivergenciaIgnorada(models.Model):
 
     def __str__(self):
         return self.descricao or self.chave
+
+
+class OperacaoPainel(models.Model):
+    """Registro de cada alteração enviada a um painel. Nunca guarda senhas."""
+    TIPO_CHOICES = [
+        ('renovacao', 'Renovação'),
+        ('senha', 'Troca de senha'),
+        ('usuario', 'Troca de usuário'),
+    ]
+    STATUS_CHOICES = [
+        ('pendente', 'Enviando'),
+        ('ok', 'Concluída'),
+        ('falha', 'Recusada pelo painel'),
+        ('incerta', 'Sem resposta do painel'),
+    ]
+
+    lista = models.ForeignKey(
+        'listas.ListaCanais', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='operacoes_painel', verbose_name='Lista',
+    )
+    painel = models.CharField('Painel', max_length=20, choices=AcessoPainel.PAINEL_CHOICES)
+    usuario_painel = models.CharField('Usuário no painel', max_length=200)
+    tipo = models.CharField('Tipo', max_length=20, choices=TIPO_CHOICES)
+    detalhe = models.CharField('Detalhe', max_length=200, blank=True)
+    status = models.CharField('Situação', max_length=20, choices=STATUS_CHOICES, default='pendente')
+    erro = models.CharField('Erro', max_length=300, blank=True)
+    validade_antes = models.DateTimeField('Validade antes', null=True, blank=True)
+    validade_depois = models.DateTimeField('Validade depois', null=True, blank=True)
+    feito_por = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Feito por')
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Operação no painel'
+        verbose_name_plural = 'Operações nos painéis'
+        ordering = ['-criado_em', '-pk']
+
+    def __str__(self):
+        return f'{self.get_tipo_display()} {self.usuario_painel} ({self.get_status_display()})'

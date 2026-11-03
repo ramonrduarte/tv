@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Alterar no painel — IPTV Manager{% endblock %}
+{% block page_title %}Alterar acesso no painel{% endblock %}
+
+{% block content %}
+<section class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-4 max-w-2xl">
+  <h2 class="font-semibold text-slate-800">{{ lista.cliente.nome }} · {{ lista.nome }}</h2>
+  <p class="text-sm text-slate-500">Usuário no sistema: <span class="font-mono">{{ lista.usuario }}</span>{% if lista.servidor %} · {{ lista.servidor.nome }}{% endif %}</p>
+  {% if acesso %}
+  <p class="text-sm text-slate-500">No painel: <span class="font-mono">{{ acesso.usuario }}</span> · {{ acesso.get_painel_display }}{% if acesso.validade %} · vence {{ acesso.validade|date:"d/m/Y" }}{% endif %}</p>
+  {% endif %}
+  <a href="{% url 'listas:detalhe' lista.pk %}" class="inline-block mt-2 text-sm text-blue-600 hover:underline">Abrir lista</a>
+</section>
+
+{% if not acesso %}
+<p class="text-sm text-yellow-700 mb-4 max-w-2xl">Esta lista não foi encontrada nos painéis lidos. Corrija o login ou vincule o acesso na Conferência.</p>
+{% elif sem_token %}
+<p class="text-sm text-yellow-700 mb-4 max-w-2xl">Falta configurar a chave da API do {{ acesso.get_painel_display }} no servidor.</p>
+{% else %}
+<form method="post" class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-4 max-w-2xl space-y-4">
+  {% csrf_token %}
+  {% if acesso.painel == 'bit' %}
+  <div>
+    <label for="novo_usuario" class="block text-sm font-medium text-slate-700 mb-1">Novo usuário</label>
+    <input id="novo_usuario" name="novo_usuario" value="{{ acesso.usuario }}" autocomplete="off"
+           class="w-full max-w-sm px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <p class="text-xs text-slate-500 mt-1">Deixe igual para não trocar.</p>
+  </div>
+  <label class="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
+    <input type="checkbox" name="gerar_senha" value="1" class="w-4 h-4 mt-0.5">
+    <span>Gerar nova senha. O BIT sorteia a senha e o sistema salva na lista. A senha antiga para de funcionar.</span>
+  </label>
+  {% else %}
+  <p class="text-sm text-slate-500">No knewcms o usuário não pode ser trocado pela API, só a senha. O WhatsApp e o país do acesso são mantidos como estão no painel.</p>
+  <div>
+    <label for="nova_senha" class="block text-sm font-medium text-slate-700 mb-1">Nova senha</label>
+    <input id="nova_senha" name="nova_senha" autocomplete="off"
+           class="w-full max-w-sm px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+  </div>
+  {% endif %}
+
+  {% if lista.apps.exists %}
+  <p class="text-sm text-slate-500">Depois da troca, atualize também nos aplicativos: {% for a in lista.apps.all %}{{ a.app.nome }}{% if a.aparelho %} ({{ a.aparelho }}){% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}.</p>
+  {% endif %}
+
+  <label class="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
+    <input type="checkbox" name="confirmo" value="1" required class="w-4 h-4 mt-0.5">
+    <span>Confirmo a alteração no painel {{ acesso.get_painel_display }}. O cliente precisa usar os novos dados.</span>
+  </label>
+  <button type="submit" onclick="if(!this.form.reportValidity())return false; this.disabled=true; this.textContent='Enviando…'; this.form.submit();"
+          class="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition">Alterar no painel</button>
+</form>
+{% endif %}
+
+<div class="max-w-2xl">
+{% include 'conferencia/_historico.html' with titulo='Operações desta lista' %}
+</div>
+{% endblock %}

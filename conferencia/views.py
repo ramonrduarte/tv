@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import Http404
@@ -6,8 +8,11 @@ from django.views.decorators.http import require_POST
 
 from listas.models import ListaCanais
 
+from . import escrita, operacoes
 from .leitura import PAINEIS_API, LeituraInvalida, ler_painel, tem_token
-from .models import AcessoPainel, ConfiguracaoConferencia, DivergenciaIgnorada, LeituraPainel, VinculoPainel
+from .models import (
+    AcessoPainel, ConfiguracaoConferencia, DivergenciaIgnorada, LeituraPainel, OperacaoPainel, VinculoPainel,
+)
 from .regras import montar_conferencia
 
 NOMES_PAINEL = dict(AcessoPainel.PAINEL_CHOICES)
@@ -110,3 +115,128 @@ def ignorar(request):
 def restaurar(request, pk):
     DivergenciaIgnorada.objects.filter(pk=pk).delete()
     return redirect('conferencia:painel')
+
+
+# ---------------------------------------------------------------------------
+# Renovação em lote e alteração de acesso (gastam créditos ou mudam o painel)
+# ---------------------------------------------------------------------------
+
+def _meses(request):
+    try:
+        meses = int(request.POST.get('meses', ''))
+    except ValueError:
+        return None
+    return meses if meses in escrita.MESES_PERMITIDOS else None
+
+
+@login_required
+def renovar(request):
+    filtro = 'todas' if request.GET.get('filtro') == 'todas' else 'vencendo'
+    return render(request, 'conferencia/renovar.html', {
+        'filtro': filtro,
+        'itens': operacoes.candidatas(filtro),
+        'meses_opcoes': escrita.MESES_PERMITIDOS,
+        'historico': OperacaoPainel.objects.select_related('lista__cliente')[:20],
+        'limite': operacoes.LIMITE_LOTE,
+    })
+
+
+@login_required
+@require_POST
+def renovar_conferir(request):
+    meses = _meses(request)
+    ids = {int(i) for i in request.POST.getlist('lista') if i.isdigit()}
+    itens = [i for i in operacoes.candidatas('todas') if i['lista'].pk in ids]
+    if not itens or not meses:
+        messages.error(request, 'Marque ao menos uma lista e escolha os meses.')
+        return redirect('conferencia:renovar')
+    if len(itens) > operacoes.LIMITE_LOTE:
+        messages.error(request, f'Renove no máximo {operacoes.LIMITE_LOTE} listas por vez.')
+        return redirect('conferencia:renovar')
+
+    tem_bit = any(i['acesso'].painel == 'bit' for i in itens)
+    planos, creditos, erro_bit = [], None, ''
+    if tem_bit and tem_token('bit'):
+        try:
+            planos = escrita.bit_planos()
+            creditos = escrita.bit_creditos()
+        except LeituraInvalida as e:
+            erro_bit = str(e)
+    lote = uuid.uuid4().hex
+    request.session['lote_renovacao'] = lote
+    return render(request, 'conferencia/renovar_conferir.html', {
+        'itens': itens,
+        'meses': meses,
+        'lote': lote,
+        'qtd_knewcms': sum(1 for i in itens if i['acesso'].painel == 'knewcms'),
+        'qtd_bit': sum(1 for i in itens if i['acesso'].painel == 'bit'),
+        'tem_bit': tem_bit,
+        'planos': planos,
+        'plano_salvo': ConfiguracaoConferencia.atual().plano_bit,
+        'creditos': creditos,
+        'erro_bit': erro_bit,
+    })
+
+
+@login_required
+@require_POST
+def renovar_executar(request):
+    # O código do lote vale uma vez só: um segundo envio do mesmo formulário não renova de novo.
+    lote = request.POST.get('lote', '')
+    if not lote or request.session.pop('lote_renovacao', None) != lote:
+        messages.error(request, 'Este lote já foi enviado ou expirou. Confira o histórico antes de renovar de novo.')
+        return redirect('conferencia:renovar')
+    meses = _meses(request)
+    ids = [int(i) for i in request.POST.getlist('lista') if i.isdigit()][:operacoes.LIMITE_LOTE]
+    if not meses or not ids:
+        messages.error(request, 'Lote inválido.')
+        return redirect('conferencia:renovar')
+    plano = request.POST.get('plano_bit', '').strip()
+    if plano:
+        configuracao = ConfiguracaoConferencia.atual()
+        configuracao.plano_bit = plano
+        configuracao.save()
+    resultado = operacoes.executar_renovacao(ids, meses, plano, request.user)
+    return render(request, 'conferencia/renovar_resultado.html', {'resultado': resultado, 'meses': meses})
+
+
+@login_required
+def acesso_editar(request, pk):
+    lista = get_object_or_404(ListaCanais.objects.select_related('cliente', 'servidor'), pk=pk)
+    acesso = operacoes.acessos_das_listas([lista]).get(lista.pk)
+    if request.method == 'POST' and acesso:
+        novo_usuario = request.POST.get('novo_usuario', '').strip()
+        nova_senha = request.POST.get('nova_senha', '').strip()
+        gerar_senha = request.POST.get('gerar_senha') == '1'
+        erro = ''
+        if not request.POST.get('confirmo'):
+            erro = 'Marque a confirmação para alterar no painel.'
+        elif not tem_token(acesso.painel):
+            erro = f'Falta a chave da API ({PAINEIS_API[acesso.painel][0]}).'
+        elif acesso.painel == 'bit' and novo_usuario and (len(novo_usuario) < 3 or ' ' in novo_usuario):
+            erro = 'O novo usuário precisa ter ao menos 3 caracteres e não pode ter espaços.'
+        elif acesso.painel == 'knewcms' and nova_senha and len(nova_senha) < 4:
+            erro = 'A nova senha precisa ter ao menos 4 caracteres.'
+        elif not (novo_usuario and novo_usuario != acesso.usuario) and not nova_senha and not gerar_senha:
+            erro = 'Nada para alterar.'
+        if erro:
+            messages.error(request, erro)
+        else:
+            try:
+                feito = operacoes.alterar_acesso(
+                    lista, acesso, request.user, novo_usuario=novo_usuario,
+                    nova_senha=nova_senha, gerar_senha=gerar_senha,
+                )
+            except LeituraInvalida as e:
+                messages.error(request, f'O painel recusou ou não respondeu: {e} Confira o histórico abaixo.')
+            else:
+                apps = ', '.join(a.app.nome for a in lista.apps.select_related('app'))
+                aviso = f' Atualize também nos aplicativos: {apps}.' if apps else ''
+                messages.success(request, ' '.join(feito) + aviso)
+        return redirect('conferencia:acesso_editar', pk=lista.pk)
+    return render(request, 'conferencia/acesso_editar.html', {
+        'lista': lista,
+        'acesso': acesso,
+        'historico': OperacaoPainel.objects.filter(lista=lista)[:10],
+        'sem_token': bool(acesso) and not tem_token(acesso.painel),
+    })

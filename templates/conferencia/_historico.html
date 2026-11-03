@@ -1,0 +1,15 @@
+{% if historico %}
+<section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+  <div class="px-4 py-3 border-b border-slate-200"><h2 class="font-semibold text-slate-800 text-sm">{{ titulo }}</h2></div>
+  <div class="divide-y divide-slate-100">
+    {% for op in historico %}
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 text-sm">
+      <span class="text-xs text-slate-500 whitespace-nowrap">{{ op.criado_em|date:"d/m/Y H:i" }}</span>
+      <span class="flex-1 min-w-[200px] text-slate-700">{{ op.get_tipo_display }} · {% if op.lista %}{{ op.lista.cliente.nome }} · {{ op.lista.nome }}{% else %}{{ op.usuario_painel }}{% endif %} · {{ op.get_painel_display }}{% if op.detalhe %} · {{ op.detalhe }}{% endif %}</span>
+      <span class="px-2 py-0.5 text-xs font-medium rounded-full
+        {% if op.status == 'ok' %}bg-green-100 text-green-700{% elif op.status == 'incerta' or op.status == 'pendente' %}bg-yellow-100 text-yellow-700{% else %}bg-red-100 text-red-700{% endif %}">{{ op.get_status_display }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}

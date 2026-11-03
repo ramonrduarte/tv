@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Resultado da renovação — IPTV Manager{% endblock %}
+{% block page_title %}Resultado da renovação{% endblock %}
+
+{% block content %}
+{% if resultado.creditos_bit is not None %}
+<p class="text-sm text-slate-600 mb-4">Saldo do BIT depois da renovação: {{ resultado.creditos_bit }} crédito{{ resultado.creditos_bit|pluralize:"s" }}.</p>
+{% endif %}
+
+<section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-4 max-w-4xl">
+  <div class="divide-y divide-slate-100">
+    {% for i in resultado.itens %}
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
+      <div class="flex-1 min-w-[220px]">
+        <p class="text-sm font-medium text-slate-800">{{ i.lista.cliente.nome }} · {{ i.lista.nome }}</p>
+        <p class="text-xs text-slate-500">{% if i.acesso %}<span class="font-mono">{{ i.acesso.usuario }}</span> · {{ i.acesso.get_painel_display }}{% endif %}</p>
+        {% if i.operacao.erro %}<p class="text-xs text-red-600 mt-0.5">{{ i.operacao.erro }}</p>{% elif i.motivo %}<p class="text-xs text-yellow-700 mt-0.5">{{ i.motivo }}</p>{% endif %}
+      </div>
+      {% if i.operacao %}
+      <span class="px-2 py-0.5 text-xs font-medium rounded-full
+        {% if i.operacao.status == 'ok' %}bg-green-100 text-green-700{% elif i.operacao.status == 'incerta' %}bg-yellow-100 text-yellow-700{% else %}bg-red-100 text-red-700{% endif %}">{{ i.operacao.get_status_display }}</span>
+      {% if i.operacao.validade_depois %}<span class="text-xs text-slate-500">Nova validade {{ i.operacao.validade_depois|date:"d/m/Y" }}</span>{% endif %}
+      {% else %}
+      <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-slate-200 text-slate-600">Não enviada</span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<p class="text-sm text-slate-500 mb-4 max-w-4xl">"Sem resposta do painel" quer dizer que o pedido pode ter sido feito. Confira a validade no painel ou atualize a leitura antes de renovar essa lista de novo.</p>
+<a href="{% url 'conferencia:renovar' %}" class="px-4 py-2 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 transition">Voltar para renovar</a>
+{% endblock %}

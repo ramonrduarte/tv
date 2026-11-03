@@ -164,7 +164,7 @@
 
       <a href="{% url 'conferencia:painel' %}"
          class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                {% if '/conferencia/' in path %}bg-blue-600 text-white{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+                {% if '/conferencia/' in path and '/renovar' not in path %}bg-blue-600 text-white{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
         <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
@@ -172,6 +172,15 @@
         {% if conferencia_total %}
         <span class="px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-900 text-xs font-bold">{{ conferencia_total }}</span>
         {% endif %}
+      </a>
+
+      <a href="{% url 'conferencia:renovar' %}"
+         class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                {% if '/conferencia/renovar' in path %}bg-blue-600 text-white{% else %}text-slate-400 hover:bg-slate-800 hover:text-white{% endif %}">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        Renovar
       </a>
 
       <a href="{% url 'listas:filtro_app' %}"

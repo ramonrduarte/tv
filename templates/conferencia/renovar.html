@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}Renovar — IPTV Manager{% endblock %}
+{% block page_title %}Renovar listas{% endblock %}
+
+{% block content %}
+<p class="text-sm text-slate-500 mb-4">Marque as listas, escolha os meses e confira antes de enviar. A renovação gasta créditos nos painéis.</p>
+
+<div class="flex flex-wrap items-center gap-2 mb-4">
+  <a href="?filtro=vencendo" class="px-3 py-1.5 text-sm rounded-full border transition {% if filtro == 'vencendo' %}bg-blue-600 border-blue-600 text-white font-medium{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-50{% endif %}">Vencidas e vencendo em 7 dias</a>
+  <a href="?filtro=todas" class="px-3 py-1.5 text-sm rounded-full border transition {% if filtro == 'todas' %}bg-blue-600 border-blue-600 text-white font-medium{% else %}bg-white border-slate-300 text-slate-600 hover:bg-slate-50{% endif %}">Todas</a>
+</div>
+
+<form method="post" action="{% url 'conferencia:renovar_conferir' %}" x-data="{ marcadas: 0 }">
+  {% csrf_token %}
+  <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+    <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-slate-200">
+      <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+        <input type="checkbox" class="w-4 h-4"
+               @change="document.querySelectorAll('input[name=lista]:not(:disabled)').forEach(c => c.checked = $event.target.checked); marcadas = document.querySelectorAll('input[name=lista]:checked').length">
+        Marcar todas
+      </label>
+      <span class="text-sm text-slate-500"><span x-text="marcadas">0</span> marcada(s) · no máximo {{ limite }} por vez</span>
+    </div>
+    <div class="divide-y divide-slate-100">
+      {% for i in itens %}
+      <label class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 {% if i.sem_token %}opacity-60{% else %}cursor-pointer hover:bg-slate-50{% endif %}">
+        <input type="checkbox" name="lista" value="{{ i.lista.pk }}" class="w-4 h-4" {% if i.sem_token %}disabled{% endif %}
+               @change="marcadas = document.querySelectorAll('input[name=lista]:checked').length">
+        <div class="flex-1 min-w-[220px]">
+          <p class="text-sm font-medium text-slate-800">{{ i.lista.cliente.nome }} · {{ i.lista.nome }}</p>
+          <p class="text-xs text-slate-500"><span class="font-mono">{{ i.acesso.usuario }}</span> · {{ i.acesso.get_painel_display }}{% if i.acesso.teste %} · teste{% endif %}{% if i.sem_token %} · sem chave da API{% endif %}</p>
+        </div>
+        <span class="px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap
+          {% if i.pagamento.1 == 'red' %}bg-red-100 text-red-700{% elif i.pagamento.1 == 'yellow' %}bg-yellow-100 text-yellow-700{% elif i.pagamento.1 == 'green' %}bg-green-100 text-green-700{% else %}bg-slate-200 text-slate-600{% endif %}">Pagamento: {{ i.pagamento.0 }}</span>
+        <span class="text-xs whitespace-nowrap {% if i.vencida %}text-red-600 font-semibold{% else %}text-slate-500{% endif %}">
+          {% if i.acesso.validade %}{% if i.vencida %}Venceu{% else %}Vence{% endif %} {{ i.acesso.validade|date:"d/m/Y" }}{% else %}Sem validade{% endif %}
+        </span>
+      </label>
+      {% empty %}
+      <p class="px-4 py-8 text-center text-sm text-slate-500">Nenhuma lista {% if filtro == 'vencendo' %}vencida ou vencendo em 7 dias{% else %}encontrada nos painéis{% endif %}.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if itens %}
+  <div class="flex flex-wrap items-center gap-3 mb-8">
+    <label for="meses" class="text-sm text-slate-600">Renovar por</label>
+    <select id="meses" name="meses" class="px-2 py-1.5 text-sm border border-slate-300 rounded-lg bg-white">
+      {% for m in meses_opcoes %}<option value="{{ m }}">{{ m }} {% if m == 1 %}mês{% else %}meses{% endif %}</option>{% endfor %}
+    </select>
+    <button type="submit" class="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition">Conferir antes de enviar</button>
+  </div>
+  {% endif %}
+</form>
+
+{% include 'conferencia/_historico.html' with titulo='Últimas operações nos painéis' %}
+{% endblock %}

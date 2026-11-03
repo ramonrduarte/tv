@@ -26,6 +26,44 @@ class LeituraInvalida(Exception):
     """A leitura não é confiável e os dados anteriores devem ser mantidos."""
 
 
+class SemResposta(LeituraInvalida):
+    """O pedido pode ter chegado ao painel, mas a resposta não voltou."""
+
+
+def _chamar(base, token, nome, metodo, caminho, params=None, corpo=None):
+    url = f'{base}{caminho}'
+    if params:
+        url += f'?{urllib.parse.urlencode(params)}'
+    cabecalhos = {
+        'Authorization': f'Bearer {token}',
+        'Accept': 'application/json',
+        'User-Agent': 'IPTV-Manager/1.0',
+    }
+    dados = None
+    if corpo is not None:
+        dados = json.dumps(corpo).encode()
+        cabecalhos['Content-Type'] = 'application/json'
+    pedido = urllib.request.Request(url, data=dados, headers=cabecalhos, method=metodo)
+    try:
+        with urllib.request.urlopen(pedido, timeout=30) as resposta:
+            conteudo = resposta.read().decode()
+            return json.loads(conteudo) if conteudo.strip() else {}
+    except urllib.error.HTTPError as e:
+        # O BIT devolve {"error": {"code", "message"}}; o código ajuda a saber se é IP ou token.
+        try:
+            corpo_erro = json.loads(e.read().decode())
+            erro = corpo_erro.get('error') if isinstance(corpo_erro.get('error'), dict) else corpo_erro
+            detalhe = ' '.join(str(x) for x in (erro.get('code'), erro.get('message')) if x)[:160]
+            detalhe = f': {detalhe}' if detalhe else ''
+        except (ValueError, AttributeError):
+            detalhe = ''
+        raise LeituraInvalida(f'A API do {nome} respondeu com erro {e.code}{detalhe}.')
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        raise SemResposta(f'Não foi possível acessar a API do {nome}: {e}')
+    except ValueError:
+        raise LeituraInvalida(f'A API do {nome} retornou uma resposta inesperada.')
+
+
 def assinar_senha(senha):
     """Permite comparar a senha do painel com a do sistema sem guardá-la."""
     if not senha:
@@ -96,21 +134,7 @@ def salvar_leitura(painel, acessos):
 # ---------------------------------------------------------------------------
 
 def _knewcms_get(params):
-    url = f'{KNEWCMS_API}/lines?{urllib.parse.urlencode(params)}'
-    pedido = urllib.request.Request(url, headers={
-        'Authorization': f'Bearer {settings.WWPANEL_API_TOKEN}',
-        'Accept': 'application/json',
-        'User-Agent': 'IPTV-Manager/1.0',
-    })
-    try:
-        with urllib.request.urlopen(pedido, timeout=30) as resposta:
-            return json.loads(resposta.read().decode())
-    except urllib.error.HTTPError as e:
-        raise LeituraInvalida(f'A API do knewcms respondeu com erro {e.code}.')
-    except (urllib.error.URLError, TimeoutError, OSError) as e:
-        raise LeituraInvalida(f'Não foi possível acessar a API do knewcms: {e}')
-    except ValueError:
-        raise LeituraInvalida('A API do knewcms retornou uma resposta inesperada.')
+    return _chamar(KNEWCMS_API, settings.WWPANEL_API_TOKEN, 'knewcms', 'GET', '/lines', params)
 
 
 def _data_knewcms(valor):
@@ -170,27 +194,7 @@ def buscar_knewcms():
 # ---------------------------------------------------------------------------
 
 def _bit_get(caminho, params):
-    url = f'{BIT_API}{caminho}?{urllib.parse.urlencode(params)}'
-    pedido = urllib.request.Request(url, headers={
-        'Authorization': f'Bearer {settings.BIT_API_TOKEN}',
-        'Accept': 'application/json',
-        'User-Agent': 'IPTV-Manager/1.0',
-    })
-    try:
-        with urllib.request.urlopen(pedido, timeout=30) as resposta:
-            return json.loads(resposta.read().decode())
-    except urllib.error.HTTPError as e:
-        # A API devolve {"error": {"code", "message"}}; o código ajuda a saber se é IP ou token.
-        try:
-            erro = json.loads(e.read().decode()).get('error') or {}
-            detalhe = f": {erro.get('code', '')} {erro.get('message', '')}".rstrip()[:160]
-        except (ValueError, AttributeError):
-            detalhe = ''
-        raise LeituraInvalida(f'A API do BIT respondeu com erro {e.code}{detalhe}.')
-    except (urllib.error.URLError, TimeoutError, OSError) as e:
-        raise LeituraInvalida(f'Não foi possível acessar a API do BIT: {e}')
-    except ValueError:
-        raise LeituraInvalida('A API do BIT retornou uma resposta inesperada.')
+    return _chamar(BIT_API, settings.BIT_API_TOKEN, 'BIT', 'GET', caminho, params)
 
 
 def _acesso_bit(item, teste):
