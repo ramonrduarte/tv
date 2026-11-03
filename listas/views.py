@@ -122,8 +122,25 @@ class ListaCanaisUpdateView(LoginRequiredMixin, UpdateView):
     form_class = ListaCanaisForm
     template_name = 'listas/form.html'
 
+    def _acesso_no_painel(self):
+        """Com o painel ligado, a senha só muda por ele, para o cadastro não ficar diferente."""
+        if not hasattr(self, '_acesso'):
+            from conferencia.leitura import tem_token
+            from conferencia.operacoes import acessos_das_listas
+            acesso = acessos_das_listas([self.object]).get(self.object.pk)
+            self._acesso = acesso if acesso and not acesso.lixeira and tem_token(acesso.painel) else None
+        return self._acesso
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        if self._acesso_no_painel():
+            form.fields['senha'].disabled = True
+            form.fields['senha'].widget.attrs['class'] += ' opacity-60 cursor-not-allowed'
+        return form
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        ctx['senha_no_painel'] = self._acesso_no_painel()
         ctx['titulo'] = f'Editar: {self.object.nome}'
         ctx['btn_label'] = 'Salvar Alterações'
         ctx['planos_json'] = _planos_json()

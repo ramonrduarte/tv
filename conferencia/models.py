@@ -116,6 +116,7 @@ class OperacaoPainel(models.Model):
         ('renovacao', 'Renovação'),
         ('senha', 'Troca de senha'),
         ('usuario', 'Troca de usuário'),
+        ('copia', 'Senha trazida do painel'),
     ]
     STATUS_CHOICES = [
         ('pendente', 'Enviando'),

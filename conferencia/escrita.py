@@ -77,3 +77,17 @@ def nova_senha_bit(usuario):
     if not senha:
         raise LeituraInvalida('O BIT não devolveu a nova senha. Confira no painel antes de tentar de novo.')
     return senha
+
+
+def senha_atual(acesso):
+    """Lê a senha que está hoje no painel, sem alterar nada lá."""
+    if acesso.painel == 'bit':
+        senha = _bit('GET', f'/lines/{_q(acesso.usuario)}').get('password')
+    else:
+        busca = _knewcms('GET', '/lines', {'generalSearch': acesso.usuario, 'page': 1, 'quantityPerPage': 50})
+        item = next((i for i in busca.get('items', []) if str(i.get('id')) == acesso.painel_id
+                     or (not acesso.painel_id and i.get('username') == acesso.usuario)), None)
+        senha = item.get('password') if item else None
+    if not senha:
+        raise LeituraInvalida('O painel não devolveu a senha deste acesso.')
+    return senha

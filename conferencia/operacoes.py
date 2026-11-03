@@ -194,3 +194,18 @@ def alterar_acesso(lista, acesso, usuario, novo_usuario='', nova_senha='', gerar
         lista.senha = senha
         feito.append('Senha alterada e salva na lista.')
     return feito
+
+
+def trazer_senha(lista, acesso, usuario):
+    """Copia para a lista a senha que está no painel. Não altera o painel."""
+    operacao = _registrar(lista, acesso, 'copia', 'Senha do painel salva na lista', usuario)
+    try:
+        senha = escrita.senha_atual(acesso)
+    except LeituraInvalida as e:
+        _concluir(operacao, e)
+        raise
+    _concluir(operacao)
+    with transaction.atomic():
+        ListaCanais.objects.filter(pk=lista.pk).update(senha=senha)
+        AcessoPainel.objects.filter(pk=acesso.pk).update(senha_hash=assinar_senha(senha))
+    lista.senha = senha

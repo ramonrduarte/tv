@@ -224,6 +224,18 @@ def renovar_executar(request):
 def acesso_editar(request, pk):
     lista = get_object_or_404(ListaCanais.objects.select_related('cliente', 'servidor'), pk=pk)
     acesso = operacoes.acessos_das_listas([lista]).get(lista.pk)
+    if request.method == 'POST' and acesso and request.POST.get('acao') == 'trazer_senha':
+        if not tem_token(acesso.painel):
+            messages.error(request, f'Falta a chave da API ({PAINEIS_API[acesso.painel][0]}).')
+        else:
+            try:
+                operacoes.trazer_senha(lista, acesso, request.user)
+            except LeituraInvalida as e:
+                messages.error(request, f'Não foi possível ler a senha no painel: {e}')
+            else:
+                messages.success(request, 'Senha do painel salva na lista. Nada foi alterado no painel.')
+        destino = _voltar(request)
+        return redirect(destino if destino != reverse('conferencia:renovar') else reverse('conferencia:acesso_editar', args=[lista.pk]))
     if request.method == 'POST' and acesso:
         novo_usuario = request.POST.get('novo_usuario', '').strip()
         nova_senha = request.POST.get('nova_senha', '').strip()
