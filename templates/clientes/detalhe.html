@@ -143,6 +143,32 @@
       </h2>
     </div>
 
+    {% if renovaveis %}
+    <form method="post" action="{% url 'conferencia:renovar_conferir' %}"
+          class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+      {% csrf_token %}
+      <input type="hidden" name="voltar" value="{% url 'clientes:detalhe' cliente.pk %}">
+      <h3 class="text-sm font-semibold text-slate-800 mb-2">Renovar nos painéis</h3>
+      <div class="space-y-1.5 mb-3">
+        {% for lista in renovaveis %}
+        <label class="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-slate-700 cursor-pointer">
+          <input type="checkbox" name="lista" value="{{ lista.pk }}" class="w-4 h-4" {% if renovaveis|length == 1 %}checked{% endif %}>
+          <span class="font-medium">{{ lista.nome }}</span>
+          <span class="text-xs text-slate-500"><span class="font-mono">{{ lista.acesso_painel.usuario }}</span> · {{ lista.acesso_painel.get_painel_display }}{% if lista.acesso_painel.validade %} · vence {{ lista.acesso_painel.validade|date:"d/m/Y" }}{% endif %}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <label for="meses-renovacao" class="text-sm text-slate-600">Renovar por</label>
+        <select id="meses-renovacao" name="meses" class="px-2 py-1.5 text-sm border border-slate-300 rounded-lg bg-white">
+          {% for m in meses_renovacao %}<option value="{{ m }}">{{ m }} {% if m == 1 %}mês{% else %}meses{% endif %}</option>{% endfor %}
+        </select>
+        <button type="submit" class="px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition">Conferir antes de enviar</button>
+      </div>
+      <p class="text-xs text-slate-500 mt-2">Na próxima tela você confere os créditos e o plano antes de confirmar.</p>
+    </form>
+    {% endif %}
+
     {% for lista in listas %}
     {% with status=lista.status_pagamento %}
     <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -349,6 +375,13 @@
            class="text-xs px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-medium transition">
           + App
         </a>
+        <a href="{% url 'conferencia:acesso_editar' lista.pk %}?voltar={% url 'clientes:detalhe' cliente.pk %}"
+           class="text-xs px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-medium transition">
+          Alterar no painel
+        </a>
+        {% if lista.acesso_painel %}
+        <span class="text-xs text-slate-500">{{ lista.acesso_painel.get_painel_display }}{% if lista.acesso_painel.lixeira %} · na lixeira{% elif lista.acesso_painel.validade %} · vence {{ lista.acesso_painel.validade|date:"d/m/Y" }}{% endif %}</span>
+        {% endif %}
         <a href="{% url 'listas:editar' lista.pk %}"
            class="text-xs px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition ml-auto">
           Editar lista

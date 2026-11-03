@@ -1,4 +1,5 @@
 """Renovação em lote e troca de usuário e senha, com registro de cada pedido."""
+import unicodedata
 from collections import defaultdict
 from datetime import timedelta
 
@@ -35,19 +36,42 @@ def acessos_das_listas(listas):
     return resultado
 
 
-def candidatas(filtro='vencendo'):
-    agora = timezone.now()
-    listas = list(
-        ListaCanais.objects.filter(ativa=True)
-        .select_related('cliente', 'servidor', 'pagador')
-        .order_by('cliente__nome', 'nome')
+def _normalizar(texto):
+    return ''.join(
+        c for c in unicodedata.normalize('NFD', (texto or '').lower())
+        if unicodedata.category(c) != 'Mn'
     )
+
+
+def _texto_busca(lista, acesso):
+    partes = [
+        lista.cliente.nome, lista.cliente.apelido, lista.cliente.whatsapp, lista.nome, lista.usuario,
+        lista.pagador.nome if lista.pagador_id else '', lista.servidor.nome if lista.servidor_id else '',
+        acesso.usuario, acesso.observacao, acesso.get_painel_display(),
+    ]
+    return _normalizar(' '.join(p for p in partes if p))
+
+
+def candidatas(filtro='vencendo', busca='', painel='', cliente_id=None):
+    """Busca em cliente, apelido, WhatsApp, pagador, lista, login, servidor e observação do painel."""
+    agora = timezone.now()
+    listas = ListaCanais.objects.filter(ativa=True)
+    if cliente_id:
+        listas = listas.filter(cliente_id=cliente_id)
+    listas = list(listas.select_related('cliente', 'servidor', 'pagador').order_by('cliente__nome', 'nome'))
     acessos = acessos_das_listas(listas)
+    termos = _normalizar(busca).split()
     itens = []
     for lista in listas:
         acesso = acessos.get(lista.pk)
         if not acesso or acesso.lixeira:
             continue
+        if painel and acesso.painel != painel:
+            continue
+        if termos:
+            texto = _texto_busca(lista, acesso)
+            if not all(t in texto for t in termos):
+                continue
         dias = (acesso.validade - agora).days if acesso.validade else None
         if filtro == 'vencendo' and dias is not None and dias > 7:
             continue

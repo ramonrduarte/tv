@@ -3,6 +3,8 @@ import uuid
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import Http404
+from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -129,12 +131,27 @@ def _meses(request):
     return meses if meses in escrita.MESES_PERMITIDOS else None
 
 
+def _voltar(request):
+    """Página para onde voltar depois da renovação, só dentro do próprio sistema."""
+    destino = request.POST.get('voltar') or request.GET.get('voltar') or ''
+    if destino and url_has_allowed_host_and_scheme(destino, allowed_hosts={request.get_host()}):
+        return destino
+    return reverse('conferencia:renovar')
+
+
 @login_required
 def renovar(request):
-    filtro = 'todas' if request.GET.get('filtro') == 'todas' else 'vencendo'
+    busca = request.GET.get('q', '').strip()
+    painel = request.GET.get('painel', '')
+    painel = painel if painel in PAINEIS_API else ''
+    filtro = request.GET.get('filtro') or ('todas' if busca else 'vencendo')
+    filtro = filtro if filtro in ('todas', 'vencendo') else 'vencendo'
     return render(request, 'conferencia/renovar.html', {
         'filtro': filtro,
-        'itens': operacoes.candidatas(filtro),
+        'busca': busca,
+        'painel': painel,
+        'paineis': [(p, NOMES_PAINEL[p]) for p in PAINEIS_API],
+        'itens': operacoes.candidatas(filtro, busca, painel),
         'meses_opcoes': escrita.MESES_PERMITIDOS,
         'historico': OperacaoPainel.objects.select_related('lista__cliente')[:20],
         'limite': operacoes.LIMITE_LOTE,
@@ -147,12 +164,13 @@ def renovar_conferir(request):
     meses = _meses(request)
     ids = {int(i) for i in request.POST.getlist('lista') if i.isdigit()}
     itens = [i for i in operacoes.candidatas('todas') if i['lista'].pk in ids]
+    voltar = _voltar(request)
     if not itens or not meses:
         messages.error(request, 'Marque ao menos uma lista e escolha os meses.')
-        return redirect('conferencia:renovar')
+        return redirect(voltar)
     if len(itens) > operacoes.LIMITE_LOTE:
         messages.error(request, f'Renove no máximo {operacoes.LIMITE_LOTE} listas por vez.')
-        return redirect('conferencia:renovar')
+        return redirect(voltar)
 
     tem_bit = any(i['acesso'].painel == 'bit' for i in itens)
     planos, creditos, erro_bit = [], None, ''
@@ -175,6 +193,7 @@ def renovar_conferir(request):
         'plano_salvo': ConfiguracaoConferencia.atual().plano_bit,
         'creditos': creditos,
         'erro_bit': erro_bit,
+        'voltar': voltar,
     })
 
 
@@ -183,21 +202,22 @@ def renovar_conferir(request):
 def renovar_executar(request):
     # O código do lote vale uma vez só: um segundo envio do mesmo formulário não renova de novo.
     lote = request.POST.get('lote', '')
+    voltar = _voltar(request)
     if not lote or request.session.pop('lote_renovacao', None) != lote:
         messages.error(request, 'Este lote já foi enviado ou expirou. Confira o histórico antes de renovar de novo.')
-        return redirect('conferencia:renovar')
+        return redirect(voltar)
     meses = _meses(request)
     ids = [int(i) for i in request.POST.getlist('lista') if i.isdigit()][:operacoes.LIMITE_LOTE]
     if not meses or not ids:
         messages.error(request, 'Lote inválido.')
-        return redirect('conferencia:renovar')
+        return redirect(voltar)
     plano = request.POST.get('plano_bit', '').strip()
     if plano:
         configuracao = ConfiguracaoConferencia.atual()
         configuracao.plano_bit = plano
         configuracao.save()
     resultado = operacoes.executar_renovacao(ids, meses, plano, request.user)
-    return render(request, 'conferencia/renovar_resultado.html', {'resultado': resultado, 'meses': meses})
+    return render(request, 'conferencia/renovar_resultado.html', {'resultado': resultado, 'meses': meses, 'voltar': voltar})
 
 
 @login_required
@@ -233,7 +253,8 @@ def acesso_editar(request, pk):
                 apps = ', '.join(a.app.nome for a in lista.apps.select_related('app'))
                 aviso = f' Atualize também nos aplicativos: {apps}.' if apps else ''
                 messages.success(request, ' '.join(feito) + aviso)
-        return redirect('conferencia:acesso_editar', pk=lista.pk)
+        destino = _voltar(request)
+        return redirect(destino if destino != reverse('conferencia:renovar') else reverse('conferencia:acesso_editar', args=[lista.pk]))
     return render(request, 'conferencia/acesso_editar.html', {
         'lista': lista,
         'acesso': acesso,

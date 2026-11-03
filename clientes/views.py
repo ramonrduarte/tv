@@ -445,6 +445,11 @@ def cliente_detalhe(request, pk):
             status__in=['pendente', 'atrasado']
         ).order_by('-vencimento').first()
 
+    from conferencia.operacoes import acessos_das_listas
+    acessos = acessos_das_listas(todas_listas)
+    for lista in todas_listas:
+        lista.acesso_painel = acessos.get(lista.pk)
+
     ativas = [l for l in todas_listas if l.ativa]
     inativas = [l for l in todas_listas if not l.ativa]
     resumo = {
@@ -459,6 +464,8 @@ def cliente_detalhe(request, pk):
         'cliente': cliente,
         'listas': ativas,
         'listas_inativas': inativas,
+        'renovaveis': [l for l in ativas if l.acesso_painel and not l.acesso_painel.lixeira],
+        'meses_renovacao': (1, 2, 3, 6, 12),
         'resumo': resumo,
         'hoje': date.today(),
     })

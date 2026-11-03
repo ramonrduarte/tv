@@ -19,6 +19,7 @@
 {% else %}
 <form method="post" class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-4 max-w-2xl space-y-4">
   {% csrf_token %}
+  {% if request.GET.voltar %}<input type="hidden" name="voltar" value="{{ request.GET.voltar }}">{% endif %}
   {% if acesso.painel == 'bit' %}
   <div>
     <label for="novo_usuario" class="block text-sm font-medium text-slate-700 mb-1">Novo usuário</label>

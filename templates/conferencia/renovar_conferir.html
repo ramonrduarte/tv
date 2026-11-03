@@ -15,6 +15,7 @@
 <form method="post" action="{% url 'conferencia:renovar_executar' %}" class="max-w-3xl">
   {% csrf_token %}
   <input type="hidden" name="lote" value="{{ lote }}">
+  <input type="hidden" name="voltar" value="{{ voltar }}">
   <input type="hidden" name="meses" value="{{ meses }}">
   {% for i in itens %}<input type="hidden" name="lista" value="{{ i.lista.pk }}">{% endfor %}
 
@@ -48,7 +49,7 @@
   </section>
 
   <div class="flex flex-wrap items-center gap-3">
-    <a href="{% url 'conferencia:renovar' %}" class="px-4 py-2 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 transition">Voltar</a>
+    <a href="{{ voltar }}" class="px-4 py-2 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 transition">Voltar</a>
     <button type="submit" onclick="this.disabled=true; this.textContent='Enviando…'; this.form.submit();"
             class="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition">Confirmar e renovar</button>
   </div>
